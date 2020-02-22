@@ -1,0 +1,42 @@
+Change log
+===============================
+
+Beta 1.03
+- Fixed unexpected bugs on generating outline.
+- Fixed one bug when convert from SMX to SLP, all shadow will be lost.
+- Empty frame data won't be ignored in cropping anymore.
+- Shift frames is available now.
+- Added selectable interpolation for scaling.
+- When exporting image files, the only one strip file will not contain index in its name.
+- Drag and drop can import image files now.
+
+Beta 1.02
+- Improved parameters in import from image files.
+- Added export to image file function.
+- Outline and smudge data in import and export functions.
+- Import/export csv file for anchors.
+- Adding outline is available.
+- Support normal and player palettes for AOE version.
+- External language files are packaged now.
+- Less fatal exceptions, which contributes the process locked.
+
+Beta 1.01
+- Read smudge data from SMX file.
+- Fixed algorithm of a property in saved SMX files.
+- Fixed issues in anchor setting.
+- Use asynchronized method to make lags less in loading image.
+- Language select, inluding English and Simplified Chinese.
+- Custom background color, though can only by editing configureation file.
+- Move shadow convert from Edit to Tools.
+- About me.
+
+Beta 1.0
+- Save file instantly.
+- Import as shadow only or distinct by alpha channel.
+- Flip, rotate and scale frames.
+- Convert gradient shadow to dithered.
+- Show frame indices on list.
+- Zoom by mouse wheel.
+- Better interior logic when create a frame.
+
+Alpha 1.0
