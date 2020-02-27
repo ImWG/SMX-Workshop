@@ -5,6 +5,7 @@ import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -55,6 +56,8 @@ final public class SpriteIO {
 					sprite = loadFromSLP(fis);
 				}else if (header.equals("SMP$")){
 					sprite = loadFromSMP(fis);
+				}else if (header.equals("4.0X")){
+					sprite = loadFromDESLP(fis);
 				}
 			}catch(NullPointerException | ArrayIndexOutOfBoundsException | NegativeArraySizeException e){
 				e.printStackTrace();
@@ -72,7 +75,7 @@ final public class SpriteIO {
 		return sprite;
 	}
 	
-	static private SMXSprite loadFromSMX(FileInputStream fis)
+	static private SMXSprite loadFromSMX(InputStream fis)
 			throws IOException, NullPointerException, ArrayIndexOutOfBoundsException, NegativeArraySizeException{
 		SMXSprite sprite = new SMXSprite();
 		
@@ -313,7 +316,7 @@ final public class SpriteIO {
 		return sprite;
 	}
 	
-	static private SLPSprite loadFromSLP(FileInputStream fis) throws IOException, NullPointerException{
+	static private SLPSprite loadFromSLP(InputStream fis) throws IOException, NullPointerException{
 		SLPSprite sprite = new SLPSprite();
 		
 		final int frameCount = readInteger(fis, 4);
@@ -467,7 +470,7 @@ final public class SpriteIO {
 		return sprite;
 	}
 
-	static private SLPSprite loadFromSMP(FileInputStream fis) throws IOException, NullPointerException{
+	static private SLPSprite loadFromSMP(InputStream fis) throws IOException, NullPointerException{
 		SLPSprite sprite = new SLPSprite();
 		
 		// Header
@@ -558,6 +561,270 @@ final public class SpriteIO {
 		
 		return sprite;
 	}
+	
+	static private SMXSprite loadFromDESLP(InputStream fis) throws IOException, NullPointerException{
+		SMXSprite sprite = new SMXSprite();
+		
+		final int frameCount = readInteger(fis, 4);
+		fis.skip(2);
+		final int shadowCount = readInteger(fis, 2);
+		fis.skip(4);
+		final int frameDataOffset = readInteger(fis, 4);
+		final int shadowDataOffset = readInteger(fis, 4);
+		
+		byte[] memoBytes = new byte[8]; // Doubt
+		fis.read(memoBytes);
+		sprite.memo = new String(memoBytes);
+		sprite.playerMode = Sprite.PLAYER_PALETTE_AOEDE;
+		
+		int[] offsets = new int[frameCount * 2];
+		fis.skip(frameDataOffset - 0x20);
+		for (int index=0; index<frameCount; ++index){
+			Sprite.Frame frame = sprite.createFrame();
+			offsets[index*2+1] = readInteger(fis, 4);
+			offsets[index*2] = readInteger(fis, 4);
+			fis.skip(6);
+			frame.palette = readInteger(fis, 2) + 256;
+			
+			int width = readInteger(fis, 4);
+			int height = readInteger(fis, 4);
+			int anchorX = readInteger(fis, 4);
+			int anchorY = readInteger(fis, 4);
+			frame.setAnchor(Sprite.DATA_IMAGE, anchorX, anchorY);
+			frame.expand(Sprite.DATA_IMAGE, anchorX, anchorY, width-anchorX, height-anchorY);
+			sprite.frames.add(index, frame);
+			
+		}
+		fis.skip(offsets[0] - 32 - (frameCount << 5));
+
+		// Contents of Each Frame
+		for (int index=0; index<frameCount; ++index){
+			
+			Sprite.Frame frame = sprite.getFrame(index);
+
+			InputStream tis;
+			if (index == frameCount - 1 && shadowDataOffset <= frameDataOffset){ // No shadow
+				tis = fis;
+			}else{
+				int length;
+				if (index == frameCount - 1)
+					length = shadowDataOffset - offsets[index*2];
+				else
+					length = offsets[index*2+2] - offsets[index*2];
+
+				byte[] segment = new byte[length];
+				fis.read(segment);
+				tis = new ByteArrayInputStream(segment);
+			}
+			
+			int h = frame.getHeight(Sprite.DATA_IMAGE);
+
+			int[] borders = new int[h*2]; //Left and right padding
+			for (int j=0; j<h*2; ++j){
+				borders[j] = readInteger(tis, 2);
+			}
+			tis.skip(offsets[index*2+1] - offsets[index*2] - h*4);
+			tis.skip(h*4); //Addresses of lines
+			
+			for (int y=0; y<h; ++y){
+				int x = borders[y*2];
+				
+				int start = readInteger(tis, 1, false);
+				while(true){
+					
+					byte byt = (byte) start; 
+					
+					int bytl = byt & 0xF;
+					int byth = byt & 0xF0;
+					
+					int len = 1;
+					if (bytl == 0xF){ //End of line
+						break;
+					}else if ((bytl & 0x3) == 0x0){ // Short normal pixels
+						len = (start & 0xff) >> 2;
+						byte[] bytet = new byte[len];
+						tis.read(bytet);
+						for (int j=0; j<len; ++j){
+							frame.setPixel(Sprite.DATA_IMAGE, x++, y, bytet[j] & 0xff);
+						}
+						
+					}else if ((bytl & 0x3) == 0x1){ // Short blank
+						x += (start & 0xff) >> 2;
+						
+					}else if (bytl == 2){ // Long normal pixels
+						len = (byth << 4) + readInteger(tis, 1, false);
+						byte[] bytet = new byte[len];
+						tis.read(bytet);
+						for (int j=0; j<len; ++j){
+							frame.setPixel(Sprite.DATA_IMAGE, x++, y, bytet[j] & 0xff);
+						}
+
+					}else if (bytl == 3){ // Long blank
+						len = (byth << 4) + readInteger(tis, 1, false);
+						x += len;
+
+					}else if (bytl == 6){ // Player color
+						len = byth >> 4;
+						if (len == 0){
+							len = readInteger(tis, 1, false);
+						}
+						for (int j=0; j<len; ++j){
+							frame.setPixel(Sprite.DATA_IMAGE, x++, y, readInteger(tis, 1, false) + Sprite.PIXEL_PLAYER_START);
+						}
+
+					}else if (bytl == 7){ // Repeated pixel
+						len = byth >> 4;
+						if (len == 0){
+							len = readInteger(tis, 1, false);
+						}
+						int pixel = readInteger(tis, 1, false);
+						for (int j=0; j<len; ++j){
+							frame.setPixel(Sprite.DATA_IMAGE, x++, y, pixel);
+						}
+
+					}else if (bytl == 0xA){ // Repeated player color
+						len = byth >> 4;
+						if (len == 0){
+							len = readInteger(tis, 1, false);
+						}
+						int pixel = readInteger(tis, 1, false) + Sprite.PIXEL_PLAYER_START;
+						for (int j=0; j<len; ++j){
+							frame.setPixel(Sprite.DATA_IMAGE, x++, y, pixel);
+						}
+
+					}
+					start = readInteger(tis, 1, false);
+				}
+
+			}
+			
+			if (tis != fis)
+				tis.close();
+			
+			MainFrame.setProcessString(String.format("Loading %d/%d ...", index, frameCount));
+			
+		}
+		
+		// Load Shadows 
+		if (shadowDataOffset > frameDataOffset){
+			
+			for (int index=0; index<shadowCount; ++index){
+				offsets[index*2+1] = readInteger(fis, 4);
+				offsets[index*2] = readInteger(fis, 4);
+				fis.skip(8);
+	
+				int width = readInteger(fis, 4);
+				int height = readInteger(fis, 4);
+				int anchorX = readInteger(fis, 4);
+				int anchorY = readInteger(fis, 4);
+				Sprite.Frame frame = sprite.getFrame(index);
+				frame.setAnchor(Sprite.DATA_SHADOW, anchorX, anchorY);
+				frame.expand(Sprite.DATA_SHADOW, anchorX, anchorY, width-anchorX, height-anchorY);
+				
+			}
+			fis.skip(offsets[0] - (shadowCount << 5) - shadowDataOffset);
+	
+			// Contents of Each Frame
+			for (int index=0; index<shadowCount; ++index){
+				
+				Sprite.Frame frame = sprite.getFrame(index);
+	
+				InputStream tis;
+				if (index == shadowCount - 1){
+					tis = fis;
+				}else{
+					byte[] segment = new byte[offsets[index*2+2] - offsets[index*2]];
+					fis.read(segment);
+					tis = new ByteArrayInputStream(segment);
+				}
+				
+				int h = frame.getHeight(Sprite.DATA_SHADOW);
+	
+				int[] borders = new int[h*2]; //Left and right padding
+				for (int j=0; j<h*2; ++j){
+					borders[j] = readInteger(tis, 2);
+				}
+				tis.skip(offsets[index*2+1] - offsets[index*2] - h*4);
+				tis.skip(h*4); //Addresses of lines
+				
+				for (int y=0; y<h; ++y){
+					int x = borders[y*2];
+					
+					int start = readInteger(tis, 1, false);
+					while(true){
+						
+						byte byt = (byte) start; 
+						
+						int bytl = byt & 0xF;
+						int byth = byt & 0xF0;
+						
+						int len = 1;
+						if (bytl == 0xF){ // End of line
+							break;
+						}else if ((bytl & 0x3) == 0x0){ // Short pixels
+							len = (start & 0xff) >> 2;
+							byte[] bytet = new byte[len];
+							tis.read(bytet);
+							for (int j=0; j<len; ++j){
+								frame.setPixel(Sprite.DATA_SHADOW, x++, y, 
+										getAOEDEShadowDepth(bytet[j] & 0xff));
+							}
+							
+						}else if ((bytl & 0x3) == 0x1){ // Short blank
+							x += (start & 0xff) >> 2;
+							
+						}else if (bytl == 2){ // Large pixels
+							len = (byth << 4) + readInteger(tis, 1, false);
+							byte[] bytet = new byte[len];
+							tis.read(bytet);
+							for (int j=0; j<len; ++j){
+								frame.setPixel(Sprite.DATA_SHADOW, x++, y,
+										getAOEDEShadowDepth(bytet[j] & 0xff));
+							}
+	
+						}else if (bytl == 3){ // Large blank
+							len = (byth << 4) + readInteger(tis, 1, false);
+							x += len;
+	
+						}else if (bytl == 7){ // Repeated pixel
+							len = byth >> 4;
+							if (len == 0){
+								len = readInteger(tis, 1, false);
+							}
+							int pixel = readInteger(tis, 1, false);
+							for (int j=0; j<len; ++j){
+								frame.setPixel(Sprite.DATA_SHADOW, x++, y, 
+										getAOEDEShadowDepth(pixel));
+							}
+						}
+						start = readInteger(tis, 1, false);
+					}
+	
+				}
+				
+				if (tis != fis)
+					tis.close();
+				
+				MainFrame.setProcessString(String.format("Loading %d/%d ...", index, frameCount));
+				
+			}
+		
+		}
+		
+		return sprite;
+	}
+
+	
+	/**
+	 * Convert shadow depth version from AOE:DE to common.
+	 * Maximum of source is 63, while minimum is 32, mapping to 2 to 126. 
+	 * @param depth Source depth.
+	 * @return Mapped depth.
+	 */
+	static private final int getAOEDEShadowDepth(int depth){
+		return Math.max(0, Math.min(63, 63 - depth)) * 4 + 2;
+	}
+
 	
 	
 	static private class CompiledSLPFrame{
@@ -1360,7 +1627,7 @@ final public class SpriteIO {
 		else
 			sprite.playerMode = playerMode;
 		
-		Palette pal = Palette.palettes[palette];
+		Palette pal = Palette.getPalette(palette);
 		Palette ppal = null;
 		if (playerPalette >= 0 && playerPalette < 8){
 			ppal = Palette.getPlayerPalette(playerMode, playerPalette);

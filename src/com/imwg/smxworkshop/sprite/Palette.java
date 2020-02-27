@@ -2,46 +2,78 @@ package com.imwg.smxworkshop.sprite;
 
 import java.awt.Color;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
 public class Palette {
-	
+		
 	int[] rgbs;
 	private boolean cacheMode = false;
 	private int[] cache;
 	
-	public static Palette[] palettes;
-	public static String[] paletteNames;
-	private static Palette[] oldPlayerPalettes1, oldPlayerPalettes2;
+	public static final int ORIGINAL_PALETTE_COUNT = 512;
+	
+	private static Palette[] palettes;
+	private static String[] paletteNames;
+	private static Palette[] aoePlayerPalettes, aokPlayerPalettes;
 	private static Map<String, int[]> mappings = new HashMap<String, int[]>();
-	private static int PLAYER_PALETTE_START = 55;
+	private static Palette[] customPalettes;
+	private static String[] customPaletteNames;
+	
+	private static final int CUSTOM_PALETTE_LIMIT = 1024;
+	private static final int PLAYER_PALETTE_START = 55;
+	
 	
 	public Palette(String filename) throws IOException{
-		BufferedReader br = new BufferedReader(new FileReader(filename));
-		br.readLine(); // Header
-		br.readLine(); // Version
-		
-		int count = Integer.parseInt(br.readLine());
-		
-		int alpha = 0xff000000;
-		if (filename.endsWith(".palx")){ // With one alpha value
-			alpha = Integer.parseInt(br.readLine().substring(7)) << 24;
-		}
-		
-		rgbs = new int[count];
-		for (int i=0; i<count; ++i){
-			String[] figures = br.readLine().split(" ");
-			int rgb = Integer.parseInt(figures[0]);
-			for (int j=1; j<3; ++j){
-				rgb = rgb << 8 | Integer.parseInt(figures[j]);
+		String name1 = filename.toUpperCase();
+		if (name1.endsWith("ACT")){ // 3-byte binary
+			FileInputStream is = new FileInputStream(filename);
+			int size = is.available() / 3;
+			this.rgbs = new int[size];
+			byte[] bytes = new byte[3];
+			for (int i=0; i<size; ++i){
+				is.read(bytes);
+				rgbs[i] = (bytes[0] & 0xff) << 16 | (bytes[1] & 0xff) << 8 | bytes[2] & 0xff | 0xff000000;
 			}
-			rgbs[i] = rgb | alpha;
+			is.close();
+			
+		}else{ // Text
+			BufferedReader br = new BufferedReader(new FileReader(filename));
+			br.readLine(); // Header
+			br.readLine(); // Version
+			
+			int count = Integer.parseInt(br.readLine());
+			
+			int alpha = 0xff000000;
+			if (name1.endsWith(".PALX")){ // With one alpha value
+				alpha = Integer.parseInt(br.readLine().substring(7)) << 24;
+			}
+			
+			rgbs = new int[count];
+			for (int i=0; i<count;){
+				String line = br.readLine();
+				if (line == null)
+					break;
+				
+				line.replaceFirst("#.+$", "");
+				String[] figures = line.split(" ");
+				if (figures.length >= 3){
+					int rgb = Integer.parseInt(figures[0]);
+					for (int j=1; j<3; ++j){
+						rgb = rgb << 8 | Integer.parseInt(figures[j]);
+					}
+					rgbs[i] = rgb | alpha;
+					++i;
+				}
+			}
+			
+			br.close();
 		}
-		
-		br.close();
 	}
 	
 	public Palette(int[] rgbs){
@@ -73,7 +105,6 @@ public class Palette {
 	public void setColor(int index, int red, int green, int blue){
 		rgbs[index] = color(red, green, blue);
 	}
-	
 
 	public int mapping(int red, int green, int blue, boolean rgbmode){
 		if (cacheMode){
@@ -195,10 +226,10 @@ public class Palette {
 	public static void loadPalettes(){
 		BufferedReader br;
 		try {
+			// Load Original Palettes
 			br = new BufferedReader(new FileReader("palettes/palettes.conf"));
-
-			palettes = new Palette[288];
-			paletteNames = new String[288];
+			palettes = new Palette[ORIGINAL_PALETTE_COUNT];
+			paletteNames = new String[ORIGINAL_PALETTE_COUNT];
 			
 			String line;
 			while ((line = br.readLine()) != null){
@@ -214,12 +245,12 @@ public class Palette {
 				}
 			}
 			
-			oldPlayerPalettes2 = new Palette[8];
+			aokPlayerPalettes = new Palette[8];
 			for (int i=0; i<8; ++i){
-				oldPlayerPalettes2[i] = new Palette(palettes[0], 16 + 16 * i, 8);
+				aokPlayerPalettes[i] = new Palette(palettes[0], 16 + 16 * i, 8);
 			}
 			
-			oldPlayerPalettes1 = new Palette[]{
+			aoePlayerPalettes = new Palette[]{
 				new Palette(palettes[256], 16, 10), // Blue
 				new Palette(palettes[256], 32, 10), // Red
 				new Palette(palettes[256], 96, 10), // Green
@@ -229,10 +260,28 @@ public class Palette {
 				new Palette(palettes[256], 64, 10), // Purple(Brown)
 				new Palette(palettes[256], 112, 10), // Gray
 			};
+			
+			// Load Custom Palettes
+			File customDirectory = new File("palettes/custom/");
+			if (customDirectory.exists()){
+				String [] list = customDirectory.list();
+				final int count = Math.min(CUSTOM_PALETTE_LIMIT, list.length);
+				customPalettes = new Palette[count];
+				customPaletteNames = new String[count];
+				for (int i=0; i<count; ++i){
+					String fileName = "Custom/" + list[i];
+					customPalettes[i] = new Palette("palettes/" + fileName);
+					customPaletteNames[i] = fileName;
+				}
+			}
 		
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+	
+	public static int getCustomPaletteCount(){
+		return customPalettes.length;
 	}
 	
 	public static int[] getMappingArray(Palette srcPal, Palette dstPal, boolean cached){
@@ -255,15 +304,34 @@ public class Palette {
 		}
 	}
 	
+	public static Palette getPalette(int index){
+		if (index >= 0)
+			if (index < ORIGINAL_PALETTE_COUNT)
+				return palettes[index];
+			else if ((index -= ORIGINAL_PALETTE_COUNT) < customPalettes.length)
+				return customPalettes[index];
+		return null;
+	}
+	public static String getPaletteName(int index){
+		if (index >= 0)
+			if (index < ORIGINAL_PALETTE_COUNT)
+				return paletteNames[index];
+			else if ((index -= ORIGINAL_PALETTE_COUNT) < customPalettes.length)
+				return customPaletteNames[index];
+		return null;
+	}
+	
 	public static Palette getPlayerPalette(int version, int player){
 		switch(version){
 		default:
 		case Sprite.PLAYER_PALETTE_DE:
 			return palettes[Palette.PLAYER_PALETTE_START + player];
 		case Sprite.PLAYER_PALETTE_AOE:
-			return oldPlayerPalettes1[player];
+			return aoePlayerPalettes[player];
 		case Sprite.PLAYER_PALETTE_AOK:
-			return oldPlayerPalettes2[player];
+			return aokPlayerPalettes[player];
+		case Sprite.PLAYER_PALETTE_AOEDE:
+			return palettes[256 + Palette.PLAYER_PALETTE_START + player];
 		}
 	}
 	

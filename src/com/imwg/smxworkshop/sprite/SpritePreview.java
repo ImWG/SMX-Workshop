@@ -53,8 +53,8 @@ public class SpritePreview {
 				
 				for (int index=0; index<sprite.getFrameCount(); ++index){
 					Sprite.Frame frame = sprite.getFrame(index);
-					Palette pal = Palette.palettes[frame.getPalette()];
-					
+					Palette pal = Palette.getPalette(frame.getPalette());
+
 					// Draw Normal
 					if (frame.getWidth(Sprite.DATA_IMAGE) > 0 && frame.getHeight(Sprite.DATA_IMAGE) > 0){
 						
@@ -142,10 +142,10 @@ public class SpritePreview {
 	}
 	
 	static public void loadPaletteImages(){
-		paletteImages = new BufferedImage[Palette.palettes.length];
-		for (int i=0; i<Palette.palettes.length; ++i){
-			if (Palette.palettes[i] != null){
-				int[] rgbs = Palette.palettes[i].rgbs;
+		paletteImages = new BufferedImage[Palette.ORIGINAL_PALETTE_COUNT + Palette.getCustomPaletteCount()];
+		for (int i=0; i<paletteImages.length; ++i){
+			if (Palette.getPalette(i) != null){
+				int[] rgbs = Palette.getPalette(i).rgbs;
 				int size = 32;
 				if (rgbs.length <= 256){
 					size = 16;
