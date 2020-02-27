@@ -22,6 +22,7 @@ abstract public class Sprite implements Iterable<Sprite.Frame> {
 	static public final int PLAYER_PALETTE_DE = 0;
 	static public final int PLAYER_PALETTE_AOK = 1;
 	static public final int PLAYER_PALETTE_AOE = 2;
+	static public final int PLAYER_PALETTE_AOEDE = 3;
 	
 	static public final int FLIP_HORIZONTAL = 1;
 	static public final int FLIP_VERTICAL = 2;
@@ -81,6 +82,27 @@ abstract public class Sprite implements Iterable<Sprite.Frame> {
 	
 	public Iterator<Sprite.Frame> iterator(){
 		return frames.iterator();
+	}
+	
+	public int[] getUsedPalettes(){
+		List<Integer> list = new LinkedList<Integer>();
+		for(Sprite.Frame frame : frames){
+			int palette = frame.palette;
+			boolean notExist = true;
+			for(int i : list){ // Because sprites usually use very few palettes
+				if (i == palette){
+					notExist = true; break;
+				}
+			}
+			if (notExist)
+				list.add(palette);
+		}
+		
+		int[] array = new int[list.size()];
+		for(int i = 0; i < list.size(); ++i){
+			array[i] = list.get(i);
+		}
+		return array;
 	}
 	
 	

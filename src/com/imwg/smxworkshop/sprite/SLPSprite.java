@@ -36,13 +36,8 @@ public class SLPSprite extends Sprite {
 			super();
 			if (frame.getVersion() == Sprite.VERSION_SLP){
 				SLPSprite.Frame frame1 = (SLPSprite.Frame) frame;
-				for (int i=0; i<4; ++i){
-					props[i] = frame1.props[i];
-				}
-				image = new short[frame1.image.length];
-				for (int i=0; i<frame1.image.length; ++i){
-					image[i] = frame1.image[i];
-				}
+				props = frame1.props.clone();
+				image = frame1.image.clone();
 				
 			}else{
 				int width = frame.getWidth();
