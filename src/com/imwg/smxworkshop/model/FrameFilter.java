@@ -16,9 +16,9 @@ public class FrameFilter {
 	}
 	
 	public void changeShadowToDithered(int mode, int power, int lowLimit, int highLimit){
-		int levels = 1 << power;
-		int limitRange = highLimit - lowLimit;
-		int bind = Palette.palettes[frame.getPalette()].mapping(0x000000); // Find Darkest
+		final int levels = 1 << Math.abs(power);
+		final int limitRange = highLimit - lowLimit;
+		final int bind = Palette.getPalette(frame.getPalette()).mapping(0x000000); // Find Darkest
 		
 		if ((mode & 2) != 0) { // Expand image layer
 			int ml = 0, mr = 0, mu = 0, md = 0;
@@ -50,7 +50,7 @@ public class FrameFilter {
 					int value = frame.getPixel(Sprite.DATA_SHADOW, j, i);
 					if (value != Sprite.PIXEL_NULL){
 						value = (value - lowLimit) * levels / limitRange;
-						if (value >= ditherPattern(j-x0, i-y0, power))
+						if (value >= ditherPattern(j-x0, i-y0, power, value+1))
 							frame.setPixel(Sprite.DATA_SHADOW, j, i, 128);
 						else
 							frame.setPixel(Sprite.DATA_SHADOW, j, i, Sprite.PIXEL_NULL);
@@ -64,7 +64,7 @@ public class FrameFilter {
 					int value = frame.getPixel(Sprite.DATA_SHADOW, j, i);
 					if (value != Sprite.PIXEL_NULL){
 						value = (value - lowLimit) * levels / limitRange;
-						if (value >= ditherPattern(j-x0, i-y0, power)){
+						if (value >= ditherPattern(j-x0, i-y0, power, value+1)){
 							frame.setPixelRelative(Sprite.DATA_IMAGE, j-x0, i-y0, bind);
 						}
 					}
@@ -81,13 +81,14 @@ public class FrameFilter {
 					if (value != Sprite.PIXEL_NULL){
 						value = (value - lowLimit) * levels1 / limitRange;
 						if (value >= levels){
-							if (value - levels >= ditherPattern(j-x0, i-y0, power)){
+							value -= levels;
+							if (value >= ditherPattern(j-x0, i-y0, power, value+1)){
 								frame.setPixel(Sprite.DATA_IMAGE, j, i, bind);
 								frame.setPixel(Sprite.DATA_SHADOW, j, i, Sprite.PIXEL_NULL);
 							}else{
 								frame.setPixel(Sprite.DATA_SHADOW, j, i, 128);
 							}
-						}else if (value >= ditherPattern(j-x0, i-y0, power)){
+						}else if (value >= ditherPattern(j-x0, i-y0, power, value+1)){
 							frame.setPixel(Sprite.DATA_SHADOW, j, i, 128);
 						}else{
 							frame.setPixel(Sprite.DATA_SHADOW, j, i, Sprite.PIXEL_NULL);
@@ -106,7 +107,8 @@ public class FrameFilter {
 			if (power % 2 == 1)
 				return ditherPattern(i, j, power+1) >> 1;
 			else
-				return ditherPattern(i>>1, j>>1, 2) + (ditherPattern(i, j, power-2) << 2);
+				return ditherPattern(i>>(power>>2), j>>(power>>2), 2)
+						+ (ditherPattern(i, j, power-2) << 2);
 		else if (power == 1)
 			return (i + j) & 0x1;
 		else if (power == 2)
@@ -116,6 +118,29 @@ public class FrameFilter {
 				return 2 - (i & 0x1);
 		else
 			return 0;
+	}
+	
+	// Advanced
+	private int ditherPattern(int i, int j, int power, int value){
+		if (power >= 0){
+			return ditherPattern(i, j, power);
+		}else if (power == -2){ // Special 4-level pattern
+			value = Math.max(0, Math.min(4, value));
+			switch (value){
+			default:
+				return 1;
+			case 1:
+				return (~(~i & ((i >> 1) + j)) & 0x1) << 1;
+			case 2:
+				return ((i + j) & 0x1) << 2;
+			case 3:
+				return ((i & 0x1) + (((i >> 1) + j) & 0x1)) << 1;
+			case 4:
+				return 0;
+			}
+		}else{
+			return 0;
+		}
 	}
 	
 	/**

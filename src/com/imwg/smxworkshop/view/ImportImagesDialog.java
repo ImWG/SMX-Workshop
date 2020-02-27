@@ -49,6 +49,13 @@ public class ImportImagesDialog extends PropDialog {
 			put("csv", 0);
 		}
 	};
+	final static private int[] playerModes = new int[]{
+		Sprite.PLAYER_PALETTE_NONE,
+		Sprite.PLAYER_PALETTE_AOE,
+		Sprite.PLAYER_PALETTE_AOK,
+		Sprite.PLAYER_PALETTE_AOEDE,
+		Sprite.PLAYER_PALETTE_DE,
+	};
 	
 	public ImportImagesDialog(MainFrame frame) {
 		super(frame, ImportImagesDialog.class);
@@ -57,11 +64,15 @@ public class ImportImagesDialog extends PropDialog {
 		loadDefaultEvents();
 		
 		paletteList = new Choice();
-		palettes = new int[Palette.palettes.length];
+		final int paletteLimit = Palette.ORIGINAL_PALETTE_COUNT + Palette.getCustomPaletteCount(); 
+		palettes = new int[paletteLimit];
 		int paletteCount = 0;
-		for (int i=0; i<Palette.palettes.length; ++i){
-			if (Palette.palettes[i] != null){
-				paletteList.add("#"+i+" "+Palette.paletteNames[i]);
+		for (int i=0; i<paletteLimit; ++i){
+			if (Palette.getPalette(i) != null){
+				if (i >= Palette.ORIGINAL_PALETTE_COUNT)
+					paletteList.add(Palette.getPaletteName(i));
+				else
+					paletteList.add("#"+i+" "+Palette.getPaletteName(i));
 				palettes[paletteCount++] = i;
 			}
 		}
@@ -110,17 +121,9 @@ public class ImportImagesDialog extends PropDialog {
 		
 		this.addLabel("Label.size");
 		
-		// SET VALUES
-		int palette = settings.get("palette");
-		for (int i=0; i<palettes.length; ++i){
-			if (palettes[i] == palette){
-				paletteList.select(i); break;
-			}
-		}
-		
-		playerModeList.select(settings.get("playerMode") + 1);
+		// SET VALUES		
 		playerPaletteList.select(settings.get("playerPalette"));
-		
+
 		autoCropCheckbox.setState(settings.get("autoCrop") > 0);
 		hsvModeCheckbox.setState(settings.get("hsvMode") > 0);
 		csvCheckbox.setState(settings.get("csv") > 0);
@@ -143,12 +146,26 @@ public class ImportImagesDialog extends PropDialog {
 			}
 		}
 		
+		int palette = settings.get("palette");
+		for (int i=0; i<palettes.length; ++i){
+			if (palettes[i] == palette){
+				paletteList.select(i); break;
+			}
+		}
+		
+		int playerMode = settings.get("playerMode");
+		for (int i=0; i<playerModes.length; ++i){ 
+			if (playerMode == playerModes[i]){
+				playerModeList.select(i); break;
+			}
+		}
+		
 	}
 	
 	@Override
 	public void onConfirmed() {
 		settings.put("palette", palettes[paletteList.getSelectedIndex()]);
-		settings.put("playerMode", playerModeList.getSelectedIndex() - 1);
+		settings.put("playerMode", playerModes[playerModeList.getSelectedIndex()]);
 		settings.put("playerPalette", playerPaletteList.getSelectedIndex());
 		
 		settings.put("playerPaletteTolerance", playerText.getInteger());
@@ -159,7 +176,6 @@ public class ImportImagesDialog extends PropDialog {
 		settings.put("autoCrop", autoCropCheckbox.getState() ? 1 : 0);
 		settings.put("hsvMode", hsvModeCheckbox.getState() ? 1 : 0);
 		settings.put("csv", csvCheckbox.getState() ? 1 : 0);
-		
 		
 		int imageMode = ExportImagesDialog.IMAGE_MODES[imageModeList.getSelectedIndex()];
 		if (outlineCheckbox.getState())

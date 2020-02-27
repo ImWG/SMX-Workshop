@@ -95,9 +95,9 @@ public class NumberField extends TextField {
 		}
 		if (max != null){
 			if (integer)
-				setText(Math.max(getInteger(), (Integer) min));
+				setText(Math.min(getInteger(), (Integer) max));
 			else
-				setText(Math.max(getDouble(), (Double) min));			
+				setText(Math.min(getDouble(), (Double) max));
 		}
 	}
 	

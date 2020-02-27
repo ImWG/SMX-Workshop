@@ -10,8 +10,10 @@ import java.awt.Label;
 import java.awt.TextField;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.io.IOException;
 import java.util.Properties;
 
 public class PropDialog extends Dialog {
@@ -24,6 +26,16 @@ public class PropDialog extends Dialog {
 	
 	protected void loadProperties(Class<?> c){
 		properties = ViewConfig.viewProperties.get(c);
+	}
+	
+	// For plug-in only
+	protected void loadExternalProperties(Class<?> c){
+		try {
+			properties = new Properties();
+			properties.load(c.getResourceAsStream(c.getSimpleName() + ".properties"));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	public PropDialog(Frame owner, Class<?> dialogClass) {
@@ -78,7 +90,14 @@ public class PropDialog extends Dialog {
 			});
 		}
 		
-		this.addWindowListener(new WindowListener(){
+		addWindowListener(new WindowAdapter() {
+            public void windowClosing(WindowEvent e) {
+            	confirmed = false;
+            	dispose();
+            }
+        });
+		
+		addWindowListener(new WindowListener(){
 			@Override
 			public void windowOpened(WindowEvent e) {
 				getOwner().setEnabled(false);

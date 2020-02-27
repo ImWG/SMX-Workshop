@@ -22,6 +22,7 @@ import javax.swing.JOptionPane;
 
 import com.imwg.smxworkshop.model.FrameFilter;
 import com.imwg.smxworkshop.model.MainModel;
+import com.imwg.smxworkshop.plugin.Plugin;
 import com.imwg.smxworkshop.sprite.Palette;
 import com.imwg.smxworkshop.sprite.SLPSprite;
 import com.imwg.smxworkshop.sprite.SMXSprite;
@@ -47,12 +48,17 @@ public class MainMenu extends MenuBar{
 		setPaletteMenu.removeAll();
 		changePaletteMenu.removeAll();
 		
-		for (int i=0; i<Palette.palettes.length; ++i){
-			if (Palette.palettes[i] != null){
+		for (int i=0; i<Palette.ORIGINAL_PALETTE_COUNT + Palette.getCustomPaletteCount(); ++i){
+			if (Palette.getPalette(i) != null){
+				String name;
+				if (i >= Palette.ORIGINAL_PALETTE_COUNT)
+					name = Palette.getPaletteName(i) +" ("+Palette.getPalette(i).getColorCount()+")";
+				else
+					name = "#"+i+" - "+ Palette.getPaletteName(i) +" ("+Palette.getPalette(i).getColorCount()+")";
+				
 				final int index = i;
 				CheckMenuItem item = new CheckMenuItem(
-						"#"+i+" - "+ Palette.paletteNames[i] +" ("+Palette.palettes[i].getColorCount()+")",
-						setPaletteListener, Integer.toString(i), -1){
+						name, setPaletteListener, Integer.toString(i), -1){
 					
 					private static final long serialVersionUID = -8262755890897558852L;
 
@@ -72,8 +78,7 @@ public class MainMenu extends MenuBar{
 				setPaletteMenu.add(item);
 
 				MenuItem item2 = createMenuItem(
-						"#"+i+" - "+ Palette.paletteNames[i] +" ("+Palette.palettes[i].getColorCount()+")",
-						changePaletteListener, Integer.toString(i), -1);
+						name, changePaletteListener, Integer.toString(i), -1);
 				changePaletteMenu.add(item2);
 			}
 		}
@@ -378,7 +383,11 @@ public class MainMenu extends MenuBar{
 					model.setPlayerPalette(sprite, Sprite.PLAYER_PALETTE_AOE, false);
 					mainFrame.refreshAll();
 					break;
-				case "root.Edit.SetPlrPal.DE":
+				case "root.Edit.SetPlrPal.DE1":
+					model.setPlayerPalette(sprite, Sprite.PLAYER_PALETTE_AOEDE, false);
+					mainFrame.refreshAll();
+					break;
+				case "root.Edit.SetPlrPal.DE2":
 					model.setPlayerPalette(sprite, Sprite.PLAYER_PALETTE_DE, false);
 					mainFrame.refreshAll();
 					break;
@@ -390,7 +399,11 @@ public class MainMenu extends MenuBar{
 					model.setPlayerPalette(sprite, Sprite.PLAYER_PALETTE_AOE, true);
 					mainFrame.refreshAll();
 					break;
-				case "root.Edit.ConvPlrPal.DE":
+				case "root.Edit.ConvPlrPal.DE1":
+					model.setPlayerPalette(sprite, Sprite.PLAYER_PALETTE_AOEDE, true);
+					mainFrame.refreshAll();
+					break;
+				case "root.Edit.ConvPlrPal.DE2":
 					model.setPlayerPalette(sprite, Sprite.PLAYER_PALETTE_DE, true);
 					mainFrame.refreshAll();
 					break;
@@ -431,7 +444,7 @@ public class MainMenu extends MenuBar{
 			public void menuClicked(String action) {
 				switch (action){
 				case "root.Help.About":
-					getMainFrame().getModel().showAboutDialog();
+					new AboutDialog(getMainFrame()).setVisible(true);
 					break;
 				case "root.Help.Gc":
 					System.gc();
@@ -599,7 +612,16 @@ public class MainMenu extends MenuBar{
 					return false;
 				}
 			}); break;
-		case "root.Edit.SetPlrPal.DE":
+		case "root.Edit.SetPlrPal.DE1":
+			menuItem.setStateListener(new CheckStateListener(){
+				@Override
+				public boolean getState() {
+					if (getMainFrame().sprite != null)
+						return getMainFrame().sprite.playerMode == Sprite.PLAYER_PALETTE_AOEDE;
+					return false;
+				}
+			}); break;
+		case "root.Edit.SetPlrPal.DE2":
 			menuItem.setStateListener(new CheckStateListener(){
 				@Override
 				public boolean getState() {
@@ -626,8 +648,30 @@ public class MainMenu extends MenuBar{
 			this.setPaletteMenu = (Menu) menuItem;
 		}else if (itemKey.equals("root.Edit.ConvPal")){
 			this.changePaletteMenu = (Menu) menuItem;
-		}if (itemKey.equals("root.Help.Language")){
+		}else if (itemKey.equals("root.Help.Language")){
 			this.languageMenu = (Menu) menuItem;
+		}else if (itemKey.equals("root.Tools.Plugin")){
+			Menu parentMenu = ((Menu) menuItem);
+			parentMenu.removeAll();
+			
+			for (String className : Plugin.getPlugins()){
+				final Plugin plugin = Plugin.getPlugin(className);
+				Menu menu = new Menu(plugin.onGetName());
+				parentMenu.add(menu);
+
+				String[] menuItems = plugin.onGetMenuItems();
+				for (int i=0; i<menuItems.length; i+=2){
+					final MenuItem item = new MenuItem(menuItems[i+1]);
+					item.setName(menuItems[i]);
+					item.addActionListener(new ActionListener(){
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							plugin.onSelectMenu(getMainFrame(), item.getName());
+						}
+					});
+					menu.add(item);
+				}
+			}
 		}
 		
 	}

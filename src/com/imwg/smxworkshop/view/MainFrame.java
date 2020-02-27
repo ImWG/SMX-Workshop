@@ -555,10 +555,13 @@ public class MainFrame extends Frame{
 		    	return fd.getFileSystemView().getSystemIcon(f);
 		    }
 		});
-		fd.setFileFilter(new FileNameExtensionFilter("Supported Files", "SLP","SMP","SMX"));
+		FileFilter ff = new FileNameExtensionFilter("Supported Files", "SLP","SMP","SMX");
+		fd.setFileFilter(ff);
 		fd.setFileFilter(new FileNameExtensionFilter("SLP File", "SLP"));
 		fd.setFileFilter(new FileNameExtensionFilter("SMP File", "SMP"));
 		fd.setFileFilter(new FileNameExtensionFilter("SMX File", "SMX"));
+		fd.setFileFilter(new FileNameExtensionFilter("SHP File", "SHP"));
+		fd.setFileFilter(ff); // Default selection 
 		fd.setCurrentDirectory(new File(MainFrame.currentSpritePath));
 		fd.setFileSelectionMode(JFileChooser.FILES_ONLY);
 		fd.setMultiSelectionEnabled(false);

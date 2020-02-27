@@ -38,46 +38,46 @@ public class AboutDialog extends PropDialog {
 		Label nameLabel = this.addLabel("Label.name");
 		nameLabel.setText(nameLabel.getText() + Configuration.VERSION);
 		
-//		this.addLabel("Label.git");
-//		Label gitLabel = this.addLabel("Label.gitLink");
-//		gitLabel.setText(Configuration.gitHubPath);
-//		gitLabel.setForeground(Color.BLUE);
-//		gitLabel.addMouseListener(new MouseListener(){
-//
-//			@Override
-//			public void mouseClicked(MouseEvent e) {
-//				// Open My Repository at GitHub
-//				// Referred from https://blog.csdn.net/weixin_43445841/article/details/88769621
-//				if (java.awt.Desktop.isDesktopSupported()) {
-//					try {
-//						java.net.URI uri = java.net.URI.create(Configuration.gitHubPath);
-//						java.awt.Desktop dp = java.awt.Desktop.getDesktop();
-//						if (dp.isSupported(java.awt.Desktop.Action.BROWSE)) {
-//							dp.browse(uri);
-//						}
-//					} catch (Exception er) {
-//						er.printStackTrace();
-//					}
-//				}
-//			}
-//
-//			@Override
-//			public void mousePressed(MouseEvent e) {}
-//
-//			@Override
-//			public void mouseReleased(MouseEvent e) {}
-//
-//			@Override
-//			public void mouseEntered(MouseEvent e) {
-//				setCursor(new Cursor(Cursor.HAND_CURSOR));
-//			}
-//
-//			@Override
-//			public void mouseExited(MouseEvent e) {
-//				setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
-//			}
-//			
-//		});
+		this.addLabel("Label.git");
+		Label gitLabel = this.addLabel("Label.gitLink");
+		gitLabel.setText(Configuration.gitHubPath);
+		gitLabel.setForeground(Color.BLUE);
+		gitLabel.addMouseListener(new MouseListener(){
+
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				// Open My Repository at GitHub
+				// Referred from https://blog.csdn.net/weixin_43445841/article/details/88769621
+				if (java.awt.Desktop.isDesktopSupported()) {
+					try {
+						java.net.URI uri = java.net.URI.create(Configuration.gitHubPath);
+						java.awt.Desktop dp = java.awt.Desktop.getDesktop();
+						if (dp.isSupported(java.awt.Desktop.Action.BROWSE)) {
+							dp.browse(uri);
+						}
+					} catch (Exception er) {
+						er.printStackTrace();
+					}
+				}
+			}
+
+			@Override
+			public void mousePressed(MouseEvent e) {}
+
+			@Override
+			public void mouseReleased(MouseEvent e) {}
+
+			@Override
+			public void mouseEntered(MouseEvent e) {
+				setCursor(new Cursor(Cursor.HAND_CURSOR));
+			}
+
+			@Override
+			public void mouseExited(MouseEvent e) {
+				setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+			}
+			
+		});
 
 	}
 

@@ -2,6 +2,7 @@ package com.imwg.smxworkshop.model;
 
 import java.io.File;
 
+import com.imwg.smxworkshop.plugin.Plugin;
 import com.imwg.smxworkshop.sprite.Palette;
 import com.imwg.smxworkshop.sprite.SMXSprite;
 import com.imwg.smxworkshop.sprite.Sprite;
@@ -31,20 +32,14 @@ public class MainModel {
 	public static void exit(){
 		Configuration.saveConfig();
 	}
-	
-	
-	public void showAboutDialog(){
-		mainFrame.setEnabled(false);
-		new AboutDialog(mainFrame).setVisible(true);
-	}
-	
+		
 	public void setLanguage(String action){
 		int id = Integer.parseInt(action);
-		Configuration.languageId = id;
+		Configuration.setLanguageId(id);
 		ViewConfig.setStringTable(id);
 		Sprite sprite = mainFrame.getSprite();
-		new MainFrame().loadSprite(sprite);
 		mainFrame.dispose();
+		new MainFrame().loadSprite(sprite);
 	}
 
 	
@@ -85,17 +80,17 @@ public class MainModel {
 			FrameFilter filter = new FrameFilter();
 			for (int index : frameIndexes){
 				Sprite.Frame frame = sprite.getFrame(index);
-				Palette.palettes[frame.getPalette()].setCacheMode(true);
+				Palette.getPalette(frame.getPalette()).setCacheMode(true);
 			}
 			for (int index : frameIndexes){
 				Sprite.Frame frame = sprite.getFrame(index);
 				filter.setFrame(frame);
-				filter.scale(xFactor, yFactor, Palette.palettes[frame.getPalette()],
+				filter.scale(xFactor, yFactor, Palette.getPalette(frame.getPalette()),
 						Palette.getPlayerPalette(sprite.playerMode, mainFrame.getPreview().playerColorId));
 			}
 			for (int index : frameIndexes){
 				Sprite.Frame frame = sprite.getFrame(index);
-				Palette.palettes[frame.getPalette()].setCacheMode(false);
+				Palette.getPalette(frame.getPalette()).setCacheMode(false);
 			}
 		}else{
 			for (int index : frameIndexes){
@@ -195,8 +190,8 @@ public class MainModel {
 				for (int index : frameIndexes){
 					Sprite.Frame frame = sprite.getFrame(index);  
 					if (frame != null){
-						frame.changePixelsByPalette(Palette.palettes[frame.getPalette()],
-								Palette.palettes[palette], false);
+						frame.changePixelsByPalette(Palette.getPalette(frame.getPalette()),
+								Palette.getPalette(palette), false);
 						frame.setPalette(palette);
 					}
 				}				

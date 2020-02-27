@@ -53,7 +53,7 @@ final public class ViewConfig {
 			}
 		}
 		
-		setStringTable(Configuration.languageId);
+		setStringTable(Configuration.getLanguageId());
 		
 		
 //		try {

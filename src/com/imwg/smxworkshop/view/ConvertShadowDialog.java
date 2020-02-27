@@ -36,7 +36,10 @@ public class ConvertShadowDialog extends PropDialog {
 	
 	private void setDataByFrame(){
 		modeChoice.select(mode);
-		levelChoice.select(levels);
+		if (levels == -2)
+			levelChoice.select(9);
+		else
+			levelChoice.select(levels);
 		lowText.setText(low);
 		highText.setText(high);	
 	}
@@ -45,6 +48,8 @@ public class ConvertShadowDialog extends PropDialog {
 	public void onConfirmed() {
 		mode = modeChoice.getSelectedIndex();
 		levels = levelChoice.getSelectedIndex();
+		if (levels == 9)
+			levels = -2;
 		low = lowText.getInteger();
 		high = highText.getInteger();	
 	}
