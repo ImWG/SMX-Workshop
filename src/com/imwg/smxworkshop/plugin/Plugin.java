@@ -11,7 +11,7 @@ abstract public class Plugin {
 	abstract public void onSelectMenu(MainFrame mainFrame, String name);
 	
 	static final private String[] plugins = new String[]{
-		"com.imwg.smxworkshop.plugin.cnc.ShapeIO"
+		"com.imwg.smxworkshop.plugin.cnc.CNCPlugin"
 	};
 	static final public String[] getPlugins(){
 		return plugins;
