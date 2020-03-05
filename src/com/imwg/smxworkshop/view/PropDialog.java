@@ -26,6 +26,7 @@ public class PropDialog extends Dialog {
 	
 	protected void loadProperties(Class<?> c){
 		properties = ViewConfig.viewProperties.get(c);
+		this.dialogClass = c;
 	}
 	
 	// For plug-in only
@@ -33,15 +34,19 @@ public class PropDialog extends Dialog {
 		try {
 			properties = new Properties();
 			properties.load(c.getResourceAsStream(c.getSimpleName() + ".properties"));
+			this.dialogClass = c;
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 	
-	public PropDialog(Frame owner, Class<?> dialogClass) {
+	public PropDialog(Frame owner) {
+		super(owner);
+	}
+	
+	protected PropDialog(Frame owner, Class<?> dialogClass) {
 		super(owner);
 		loadProperties(dialogClass);
-		this.dialogClass = dialogClass;
 		
 		String langTitle = ViewConfig.getString(dialogClass.getSimpleName());
 		if (langTitle != null)

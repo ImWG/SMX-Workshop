@@ -30,6 +30,7 @@ final public class ViewConfig {
 			 ConvertShadowDialog.class,
 			 AboutDialog.class,
 			 ExportImagesDialog.class,
+			 ImageAdjustDialog.class,
 			 
 			 MainMenu.class
 		};
