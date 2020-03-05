@@ -1,5 +1,7 @@
 package com.imwg.smxworkshop.model;
 
+import java.awt.Color;
+
 import com.imwg.smxworkshop.sprite.Palette;
 import com.imwg.smxworkshop.sprite.Sprite;
 
@@ -542,4 +544,68 @@ public class FrameFilter {
 		
 	}
 
+	
+	public void adjustBrightness(double brightness, double contrast, Palette srcPal, Palette dstPal,
+			boolean player){
+		
+		Palette mapPal = new Palette(srcPal);
+		for (int i = 0; i < srcPal.getColorCount(); ++i){
+			mapPal.setColor(i, adjustColorBrightness(srcPal.getColor(i), brightness, contrast));
+		}
+		frame.changePixelsByPalette(mapPal, dstPal, player);
+	}
+	
+	public void adjustHue(double hue, double saturation, double value, boolean tint,
+			Palette srcPal, Palette dstPal, boolean player){
+		
+		Palette mapPal = new Palette(srcPal);
+		for (int i = 0; i < srcPal.getColorCount(); ++i){
+			if (tint)
+				mapPal.setColor(i, adjustColorTint(srcPal.getColor(i), hue, saturation, value));
+			else
+				mapPal.setColor(i, adjustColorHue(srcPal.getColor(i), hue, saturation, value));
+		}
+		frame.changePixelsByPalette(mapPal, dstPal, player);
+	}
+	
+	
+	final public static int adjustColorBrightness(int rgb, double brightness, double contrast){
+		// Reference: https://www.cnblogs.com/skiwnchiwns/p/10130833.html
+		contrast = Math.tan((45 + contrast * 44) * Math.PI / 180);
+		
+		Color color = new Color(rgb);
+		final int[] rgbs = {color.getRed(), color.getGreen(), color.getBlue()};
+		for (int i = 0; i < 3; ++i){
+			rgbs[i] = Math.min(255, Math.max(0, 
+					(int) ((rgbs[i] - 127.5 * (1 - brightness)) * contrast
+					+ 127.5 * (1 + brightness))));
+		}
+		return new Color(rgbs[0], rgbs[1], rgbs[2]).getRGB() | color.getAlpha() << 24;
+	}
+
+	final public static int adjustColorHue(int rgb, double hue,
+			double saturation, double value) {
+
+		Color color = new Color(rgb);
+		final float[] hsvs = new float[3];
+		Color.RGBtoHSB(color.getRed(), color.getGreen(), color.getBlue(), hsvs);
+		hsvs[0] = hsvs[0] + (float)hue % 1;
+		hsvs[1] = Math.min(1, Math.max(0, hsvs[1] + (float)saturation));
+		hsvs[2] = Math.min(1, Math.max(0, hsvs[2] + (float)value));
+		
+		return Color.HSBtoRGB(hsvs[0], hsvs[1], hsvs[2]) | color.getAlpha() << 24;
+	}
+	
+	final public static int adjustColorTint(int rgb, double hue,
+			double saturation, double value) {
+
+		Color color = new Color(rgb);
+		final float[] hsvs = new float[3];
+		Color.RGBtoHSB(color.getRed(), color.getGreen(), color.getBlue(), hsvs);
+		hsvs[0] = (float)hue % 1;
+		hsvs[1] = Math.min(1, Math.max(0, (float)saturation));
+		hsvs[2] = Math.min(1, Math.max(0, hsvs[2] + (float)value));
+		
+		return Color.HSBtoRGB(hsvs[0], hsvs[1], hsvs[2]) | color.getAlpha() << 24;
+	}
 }

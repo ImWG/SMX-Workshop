@@ -137,6 +137,8 @@ public class ExportImagesDialog extends PropDialog {
 		settings.put("columns", columnsText.getInteger());
 		settings.put("padding", paddingText.getInteger());
 		settings.put("backgroundColor", backgroundButton.getBackground().getRGB());
+		
+		settings.put("playerColor", mainFrame.getPreview().playerColorId);
 	}
 
 }

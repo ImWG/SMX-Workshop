@@ -31,7 +31,7 @@ public class Palette {
 	
 	public Palette(String filename) throws IOException{
 		String name1 = filename.toUpperCase();
-		if (name1.endsWith("ACT")){ // 3-byte binary
+		if (name1.endsWith(".ACT")){ // 3-byte binary
 			FileInputStream is = new FileInputStream(filename);
 			int size = is.available() / 3;
 			this.rgbs = new int[size];
@@ -77,7 +77,7 @@ public class Palette {
 	}
 	
 	public Palette(int[] rgbs){
-		this.rgbs = rgbs;
+		this.rgbs = rgbs.clone();
 	}
 	public Palette(Palette palette, int start, int length){
 		this.rgbs = new int[length];
@@ -302,6 +302,9 @@ public class Palette {
 			
 			return map;
 		}
+	}
+	public static int[] getMappingArray(Palette srcPal, Palette dstPal){
+		return getMappingArray(srcPal, dstPal, false);
 	}
 	
 	public static Palette getPalette(int index){

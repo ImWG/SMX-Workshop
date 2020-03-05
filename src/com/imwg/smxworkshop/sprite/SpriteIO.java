@@ -1877,6 +1877,7 @@ final public class SpriteIO {
 
 		SpritePreview preview = new SpritePreview();
 		preview.setSprite(sprite);
+		preview.playerColorId = settings.get("playerColor");
 		preview.refresh();
 		while (!preview.getFrameStatus(sprite.getFrameCount() - 1));
 		

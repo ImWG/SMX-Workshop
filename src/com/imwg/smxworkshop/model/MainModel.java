@@ -1,14 +1,13 @@
 package com.imwg.smxworkshop.model;
 
+import java.awt.Desktop;
 import java.io.File;
 
-import com.imwg.smxworkshop.plugin.Plugin;
 import com.imwg.smxworkshop.sprite.Palette;
 import com.imwg.smxworkshop.sprite.SMXSprite;
 import com.imwg.smxworkshop.sprite.Sprite;
 import com.imwg.smxworkshop.sprite.SpriteIO;
 import com.imwg.smxworkshop.sprite.SpritePreview;
-import com.imwg.smxworkshop.view.AboutDialog;
 import com.imwg.smxworkshop.view.MainFrame;
 import com.imwg.smxworkshop.view.ViewConfig;
 
@@ -41,6 +40,17 @@ public class MainModel {
 		mainFrame.dispose();
 		new MainFrame().loadSprite(sprite);
 	}
+	
+	public void openShellFile(String name){
+	   if (Desktop.isDesktopSupported()) {
+	    	try{
+				Desktop desktop = Desktop.getDesktop();
+				desktop.open(new File(name));
+	    	}catch(Exception e){
+	    		System.out.println(e.getMessage());
+	    	}
+	    }
+	}
 
 	
 	public int saveSprite(Sprite sprite, File file){
@@ -70,7 +80,7 @@ public class MainModel {
 	}
 	public void cropFrames(Sprite sprite, int[] frameIndexes){
 		for (int index : frameIndexes){
-			for (int TYPE : Sprite.DATA_TYPES)
+			for (int TYPE : Sprite.getDataTypes())
 				sprite.getFrame(index).crop(TYPE);
 		}
 	}
@@ -139,13 +149,13 @@ public class MainModel {
 		}
 	}
 	
-	
+
 	public void setAnchor(Sprite sprite, int[] frameIndexes, int type, int x, int y, boolean relative){
 		if (relative){
 			if (type == -1){
 				for (int i=0; i<frameIndexes.length; ++i){
 					Sprite.Frame frame = sprite.getFrame(frameIndexes[i]); 
-					for (int TYPE : Sprite.DATA_TYPES){
+					for (int TYPE : Sprite.getDataTypes()){
 						frame.setAnchor(TYPE, 
 								x + frame.getAnchorX(TYPE), y + frame.getAnchorY(TYPE));
 					}
@@ -163,7 +173,7 @@ public class MainModel {
 				Sprite.Frame frame = sprite.getFrame(frameIndexes[i]);
 				int x0 = frame.getAnchorX(Sprite.DATA_IMAGE);
 				int y0 = frame.getAnchorY(Sprite.DATA_IMAGE);
-				for (int TYPE : Sprite.DATA_TYPES){
+				for (int TYPE : Sprite.getDataTypes()){
 					frame.setAnchor(TYPE, x + frame.getAnchorX(TYPE) - x0,
 							y + frame.getAnchorY(TYPE) - y0);
 				}
@@ -217,6 +227,48 @@ public class MainModel {
 				}
 			}
 			sprite.playerMode = version;
+		}
+	}
+	
+	// TODO
+	public void adjustBrightness(Sprite sprite, int[] frameIndexes, double brightness, double contrast,
+			int dstPal, int dstPlayerPal, int playerIndex){
+		
+		FrameFilter filter = new FrameFilter();
+		for (int index : mainFrame.getSelectedFrames()){
+			Sprite.Frame frame = sprite.getFrame(index);
+			filter.setFrame(frame);
+			if (dstPal >= 0){
+				Palette srcPalette = Palette.getPalette(frame.getPalette());
+				filter.adjustBrightness(
+						brightness, contrast, srcPalette, srcPalette, false);
+			}
+			if (dstPlayerPal >= 0){
+				Palette srcPalette = Palette.getPlayerPalette(frame.getPalette(), playerIndex);
+				filter.adjustBrightness(
+						brightness, contrast, srcPalette, srcPalette, true);
+			}
+		}
+	}
+	
+	// TODO
+	public void adjustHue(Sprite sprite, int[] frameIndexes, double hue, double saturation, double value,
+			boolean tint, int dstPal, int dstPlayerPal, int playerIndex){
+		
+		FrameFilter filter = new FrameFilter();
+		for (int index : mainFrame.getSelectedFrames()){
+			Sprite.Frame frame = sprite.getFrame(index);
+			filter.setFrame(frame);
+			if (dstPal >= 0){
+				Palette srcPalette = Palette.getPalette(frame.getPalette());
+				filter.adjustHue(
+						hue, saturation, value, tint, srcPalette, srcPalette, false);
+			}
+			if (dstPlayerPal >= 0){
+				Palette srcPalette = Palette.getPlayerPalette(frame.getPalette(), playerIndex);
+				filter.adjustHue(
+						hue, saturation, value, tint, srcPalette, srcPalette, true);
+			}
 		}
 	}
 	

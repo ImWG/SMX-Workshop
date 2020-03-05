@@ -20,6 +20,7 @@ import java.util.Properties;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 
+import com.imwg.smxworkshop.model.Configuration;
 import com.imwg.smxworkshop.model.FrameFilter;
 import com.imwg.smxworkshop.model.MainModel;
 import com.imwg.smxworkshop.plugin.Plugin;
@@ -238,6 +239,9 @@ public class MainMenu extends MenuBar{
 					mainFrame.canvasCenterY = .5;
 					mainFrame.getCanvas().repaint();
 					break;
+				case "root.View.Palettes":
+					new ImportImagesDialog(mainFrame).setVisible(true);
+					break;
 				}
 			}
 		};
@@ -427,6 +431,7 @@ public class MainMenu extends MenuBar{
 					});
 					convertShadowDialog.setVisible(true);
 					break;
+					
 				case "root.Tools.AddOutline":
 					int[] selected = mainFrame.getSelectedFrames();
 					FrameFilter filter = new FrameFilter();
@@ -435,6 +440,50 @@ public class MainMenu extends MenuBar{
 						filter.addOutline(false, true);
 					}
 					mainFrame.refreshAll();
+					break;
+					
+				case "root.Tools.BrightContrast":
+					selected = mainFrame.getSelectedFrames();
+					if (selected.length > 0){
+						ImageAdjustDialog dialog = new ImageAdjustDialog(mainFrame, true);
+						dialog.setPreviewImage(
+								mainFrame.getPreview().getFrameImage(selected[0], Sprite.DATA_IMAGE));
+						dialog.setConfirmedListener(new ActionListener(){
+							@Override
+							public void actionPerformed(ActionEvent e) {
+								model.adjustBrightness(mainFrame.getSprite(), mainFrame.getSelectedFrames(),
+										ImageAdjustDialog.brightness, ImageAdjustDialog.contrast,
+										ImageAdjustDialog.normal ? 0 :-1,
+										ImageAdjustDialog.player? 0 :-1,
+										mainFrame.getPreview().playerColorId);
+								mainFrame.refreshAll();
+							}
+						});
+						dialog.setVisible(true);
+					}
+					break;	
+					
+				case "root.Tools.HueSaturate":
+					selected = mainFrame.getSelectedFrames();
+					if (selected.length > 0){
+						ImageAdjustDialog dialog = new ImageAdjustDialog(mainFrame, false);
+						dialog.setPreviewImage(
+								mainFrame.getPreview().getFrameImage(selected[0], Sprite.DATA_IMAGE));
+						dialog.setConfirmedListener(new ActionListener(){
+							@Override
+							public void actionPerformed(ActionEvent e) {
+								model.adjustHue(mainFrame.getSprite(), mainFrame.getSelectedFrames(),
+										ImageAdjustDialog.hue, ImageAdjustDialog.saturation, 
+										ImageAdjustDialog.value, ImageAdjustDialog.tint,
+										ImageAdjustDialog.normal ? 0 :-1,
+										ImageAdjustDialog.player? 0 :-1,
+										mainFrame.getPreview().playerColorId);
+								mainFrame.refreshAll();
+							}
+						});
+						dialog.setVisible(true);
+					}
+					break;
 					
 				}
 			}
@@ -443,6 +492,13 @@ public class MainMenu extends MenuBar{
 			@Override
 			public void menuClicked(String action) {
 				switch (action){
+				case "root.Help.Content":
+					if (Configuration.getLanguageId() == 2052){
+						getMainFrame().getModel().openShellFile("Doc/readme_zh.txt");
+					}else{
+						getMainFrame().getModel().openShellFile("Doc/readme_en.txt");
+					}
+					break;
 				case "root.Help.About":
 					new AboutDialog(getMainFrame()).setVisible(true);
 					break;
@@ -661,15 +717,19 @@ public class MainMenu extends MenuBar{
 
 				String[] menuItems = plugin.onGetMenuItems();
 				for (int i=0; i<menuItems.length; i+=2){
-					final MenuItem item = new MenuItem(menuItems[i+1]);
-					item.setName(menuItems[i]);
-					item.addActionListener(new ActionListener(){
-						@Override
-						public void actionPerformed(ActionEvent e) {
-							plugin.onSelectMenu(getMainFrame(), item.getName());
-						}
-					});
-					menu.add(item);
+					if (menuItems[i+1].equals("-")){
+						menu.addSeparator();
+					}else{
+						final MenuItem item = new MenuItem(menuItems[i+1]);
+						item.setName(menuItems[i]);
+						item.addActionListener(new ActionListener(){
+							@Override
+							public void actionPerformed(ActionEvent e) {
+								plugin.onSelectMenu(getMainFrame(), item.getName());
+							}
+						});
+						menu.add(item);
+					}
 				}
 			}
 		}

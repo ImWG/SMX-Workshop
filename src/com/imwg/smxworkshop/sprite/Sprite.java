@@ -9,7 +9,7 @@ abstract public class Sprite implements Iterable<Sprite.Frame> {
 	public static final int DATA_SHADOW = 1;
 	public static final int DATA_OUTLINE = 2;
 	public static final int DATA_SMUDGE = 3;
-	public static final int[] DATA_TYPES = new int[]{DATA_IMAGE, DATA_SHADOW, DATA_OUTLINE, DATA_SMUDGE};
+	static final int[] DATA_TYPES = new int[]{DATA_IMAGE, DATA_SHADOW, DATA_OUTLINE, DATA_SMUDGE};
 	
 	static public final int PIXEL_NULL = -1;
 	static public final int PIXEL_PLAYER_START = 0x10000;
@@ -207,7 +207,7 @@ abstract public class Sprite implements Iterable<Sprite.Frame> {
 		}
 		
 		public void changePixelsByPalette(Palette srcPal, Palette dstPal, boolean player){
-			int[] map = Palette.getMappingArray(srcPal, dstPal, false);
+			int[] map = Palette.getMappingArray(srcPal, dstPal);
 			
 			for (int i=0; i<getHeight(DATA_IMAGE); ++i){
 				for (int j=0; j<getWidth(DATA_IMAGE); ++j){
@@ -235,4 +235,7 @@ abstract public class Sprite implements Iterable<Sprite.Frame> {
 	}
 	
 
+	static public int[] getDataTypes(){
+		return DATA_TYPES.clone();
+	}
 }

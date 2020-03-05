@@ -134,25 +134,25 @@ public class FrameListPanel extends ScrollPane{
 	 * 		ITEM_DESELECT or ITEM_TOGGLE.
 	 */
 	public void onSelect(int index, int mode){
-
-		switch (mode){
-		case ITEM_SELECT_PRIME:
-			for (int i=0; i<items.length; ++i)
-				selected[i] = false;
-			selected[index] = true;
-			break;
-		case ITEM_SELECT:		
-			selected[index] = true;
-			break;
-		case ITEM_DESELECT:
-			selected[index] = false;
-			break;
-		case ITEM_TOGGLE:
-			selected[index] = !selected[index];
-			break;
+		if (index >= 0 && index < items.length){ 
+			switch (mode){
+			case ITEM_SELECT_PRIME:
+				for (int i=0; i<items.length; ++i)
+					selected[i] = false;
+				selected[index] = true;
+				break;
+			case ITEM_SELECT:		
+				selected[index] = true;
+				break;
+			case ITEM_DESELECT:
+				selected[index] = false;
+				break;
+			case ITEM_TOGGLE:
+				selected[index] = !selected[index];
+				break;
+			}
+			reselect();
 		}
-		
-		reselect();
 	}
 	
 	public void scrollTo(int index){

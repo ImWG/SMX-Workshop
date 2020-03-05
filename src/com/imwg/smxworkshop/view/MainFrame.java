@@ -1,5 +1,6 @@
 package com.imwg.smxworkshop.view;
 
+import java.awt.AWTEvent;
 import java.awt.BorderLayout;
 import java.awt.Canvas;
 import java.awt.Color;
@@ -19,10 +20,10 @@ import java.awt.dnd.DropTargetDragEvent;
 import java.awt.dnd.DropTargetDropEvent;
 import java.awt.dnd.DropTargetEvent;
 import java.awt.dnd.DropTargetListener;
+import java.awt.event.AWTEventListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseWheelEvent;
@@ -31,7 +32,6 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.Icon;
@@ -42,14 +42,12 @@ import javax.swing.filechooser.FileView;
 
 import com.imwg.smxworkshop.model.Configuration;
 import com.imwg.smxworkshop.model.MainModel;
-import com.imwg.smxworkshop.sprite.Palette;
-import com.imwg.smxworkshop.sprite.SMXSprite;
 import com.imwg.smxworkshop.sprite.Sprite;
 import com.imwg.smxworkshop.sprite.SpriteIO;
 import com.imwg.smxworkshop.sprite.SpritePreview;
 
 @SuppressWarnings("serial")
-public class MainFrame extends Frame{
+public class MainFrame extends Frame {
 	
 	private MainModel model;
 	private Dialog processDialog;
@@ -65,7 +63,6 @@ public class MainFrame extends Frame{
 	public double canvasCenterX = .5, canvasCenterY = .5;
 	public double dragX = 0, dragY = 0;
 	public boolean dragging = false;
-	public int pressedKey = -1;
 	public int mode = MODE_NORMAL;
 	public int current = 0;
 	public boolean animated = false;
@@ -140,19 +137,66 @@ public class MainFrame extends Frame{
 		
 	};
 	
-	private KeyListener keyListener = new KeyListener(){
+	private AWTEventListener keyListener = new AWTEventListener(){
 
 		@Override
-		public void keyTyped(KeyEvent e) {}
-
-		@Override
-		public void keyPressed(KeyEvent e) {
-			pressedKey = e.getKeyCode();
-		}
-
-		@Override
-		public void keyReleased(KeyEvent e) {
-			pressedKey = -1;
+		public void eventDispatched(AWTEvent event) {
+			if (!isActive())
+				return;
+			
+			if (event.getID() == KeyEvent.KEY_PRESSED){
+				KeyEvent keyEvent = (KeyEvent) event;
+				int pressedKey = keyEvent.getKeyCode();
+				switch (pressedKey){
+				case KeyEvent.VK_PAGE_UP:
+					if (current > 0){
+						if (keyEvent.isControlDown())
+							current = 0;
+						else
+							--current;
+						listPanel.onSelect(current, FrameListPanel.ITEM_SELECT_PRIME);
+						listPanel.scrollTo(current);
+						canvas.repaint(); 
+					}
+					break;
+				case KeyEvent.VK_PAGE_DOWN:
+					if (current < sprite.getFrameCount() - 1){
+						if (keyEvent.isControlDown())
+							current = sprite.getFrameCount() - 1;
+						else
+							++current;
+						listPanel.onSelect(current, FrameListPanel.ITEM_SELECT_PRIME);
+						listPanel.scrollTo(current);
+						canvas.repaint(); 
+					}
+					break;
+				case KeyEvent.VK_LEFT:
+					if (keyEvent.isControlDown()){
+						model.setAnchor(sprite, getSelectedFrames(), -1, 1, 0, true);
+						canvas.repaint(); 
+					}
+					break;
+				case KeyEvent.VK_RIGHT:
+					if (keyEvent.isControlDown()){
+						model.setAnchor(sprite, getSelectedFrames(), -1, -1, 0, true);
+						canvas.repaint(); 
+					}
+					break;
+				case KeyEvent.VK_UP:
+					if (keyEvent.isControlDown()){
+						model.setAnchor(sprite, getSelectedFrames(), -1, 0, 1, true);
+						canvas.repaint();
+					}
+					break;
+				case KeyEvent.VK_DOWN:
+					if (keyEvent.isControlDown()){
+						model.setAnchor(sprite, getSelectedFrames(), -1, 0, -1, true);
+						canvas.repaint(); 
+					}
+					break;
+				}
+				
+			}
 		}
 		
 	};
@@ -540,12 +584,14 @@ public class MainFrame extends Frame{
 		this.setMenuBar(menu);
 		menu.refreshCheckboxMenuItems();
 		
-		this.addKeyListener(keyListener);
 		this.setIconImage(SpritePreview.paletteImages[0]);
+		
+		getToolkit().addAWTEventListener(keyListener, AWTEvent.KEY_EVENT_MASK);
 		
 		setVisible(true);
 		
 	}
+	
 	
 	public File popupChooseSpriteFile(int type){
 		final JFileChooser fd = new JFileChooser();
@@ -613,7 +659,6 @@ public class MainFrame extends Frame{
 		}
 		return null;
 	}
-
 
 	public void exit() {
 		MainModel.exit();
