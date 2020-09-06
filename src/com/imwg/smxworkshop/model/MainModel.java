@@ -56,7 +56,7 @@ public class MainModel {
 	public int saveSprite(Sprite sprite, File file){
 		String name = file.getName(); 
 		String[] ends = name.split("\\.");
-		switch (ends[ends.length-1]){
+		switch (ends[ends.length-1].toUpperCase()){
 		case "SLP":
 			SpriteIO.saveSLPSprite(sprite, file.getAbsolutePath());
 			break;
@@ -65,6 +65,10 @@ public class MainModel {
 			SpriteIO.saveSMXSprite(sprite, file.getAbsolutePath());
 		}
 		return 1;
+	}
+	
+	public void setComment(Sprite sprite, String comment){
+		sprite.setMemo(comment);
 	}
 	
 	
@@ -96,7 +100,7 @@ public class MainModel {
 				Sprite.Frame frame = sprite.getFrame(index);
 				filter.setFrame(frame);
 				filter.scale(xFactor, yFactor, Palette.getPalette(frame.getPalette()),
-						Palette.getPlayerPalette(sprite.playerMode, mainFrame.getPreview().playerColorId));
+						Palette.getPlayerPalette(sprite.getPlayerMode(), mainFrame.getPreview().playerColorId));
 			}
 			for (int index : frameIndexes){
 				Sprite.Frame frame = sprite.getFrame(index);
@@ -220,13 +224,13 @@ public class MainModel {
 				int playerId = mainFrame.getPreview().playerColorId;
 				for (int i=0; i<sprite.getFrameCount(); ++i){
 					Sprite.Frame frame = sprite.getFrame(i);
-					Palette srcPal = Palette.getPlayerPalette(sprite.playerMode, playerId);
+					Palette srcPal = Palette.getPlayerPalette(sprite.getPlayerMode(), playerId);
 					Palette dstPal = Palette.getPlayerPalette(version, playerId);
 					
 					frame.changePixelsByPalette(srcPal, dstPal, true);
 				}
 			}
-			sprite.playerMode = version;
+			sprite.setPlayerMode(version);
 		}
 	}
 	
@@ -269,6 +273,103 @@ public class MainModel {
 				filter.adjustHue(
 						hue, saturation, value, tint, srcPalette, srcPalette, true);
 			}
+		}
+	}
+	
+	/**
+	 * Create mirrored angle frames. Original directions ranged from down to up, clockwise.
+	 * @param sprite Sprite to change.
+	 * @param angles Full angle count of sprite. Must be times of 4.
+	 */
+	public void completeMirrorAngles(Sprite sprite, int angles){
+		if (angles >= 4 && angles % 4 == 0){
+			int halfAngle = angles / 2 + 1;
+			int perAngle = sprite.getFrameCount() / halfAngle;
+			for (int j = halfAngle-2; j > 0; --j){
+				int offset = j * perAngle;
+				for (int i = 0; i < perAngle; ++i){
+					Sprite.Frame frame = sprite.createFrame(sprite.getFrame(offset + i));
+					frame.flip(Sprite.FLIP_HORIZONTAL);
+					sprite.insertFrame(sprite.getFrameCount(), frame);
+				}
+			}
+			adjustAngles(sprite, angles, angles / 4, 0, true, true);
+		}
+	}
+
+	/**
+	 * Remove mirrored angle frames. Directions start by right, clockwise.
+	 * @param sprite Sprite to change.
+	 * @param angles Full angle count of sprite. Must be times of 4.
+	 */
+	public void removeMirrorAngles(Sprite sprite, int angles) {
+		if (angles >= 4 && angles % 4 == 0){
+			int perAngle = sprite.getFrameCount() / angles;
+
+			int count = (angles / 4 - 1) * perAngle; // Up to right 
+			int offset = angles * perAngle;
+			for (int i = 0; i < count; ++i){
+				sprite.removeFrame(--offset);
+			}
+			
+			count += perAngle; 
+			for (int i = 0; i < count; ++i){ // Right to down
+				sprite.removeFrame(0);
+			}
+
+		}
+	}
+	
+	/**
+	 * Reverse angle sequence of sprite. First direction is kept.
+	 * @param sprite Sprite to change.
+	 * @param angles Full angle count of sprite. Must be 3 at least.
+	 */
+	public void reverseAngles(Sprite sprite, int angles){
+		if (angles > 2){
+			int perAngle = sprite.getFrameCount() / angles;
+			int limit = (angles + 1) / 2;
+			for (int j = 1; j < limit; ++j){
+				int offset1 = j * perAngle;
+				int offset2 = (angles - j) * perAngle;
+				for (int i = 0; i < perAngle; ++i){
+					sprite.swapFrames(offset1 + i, offset2 + i);
+				}
+			}
+		}
+	}
+	
+	/**
+	 * Adjust angles sequence, rotate from one angle started to another.
+	 * @param sprite Sprite to adjust.
+	 * @param angles Full angle count of sprite. Must be 3 at least.
+	 * @param srcAngle Original start angle, in clockwise, 0 is right.
+	 * @param dstAngle Adjusted start angle, in clockwise, 0 is right.
+	 * @param srcClockwise Is original sequence clockwise.
+	 * @param dstClockwise Is adjusted sequence clockwise.
+	 */
+	public void adjustAngles(Sprite sprite, int angles, int srcAngle, int dstAngle,
+			boolean srcClockwise, boolean dstClockwise) {
+		
+		if (angles >= 4 && angles % 4 == 0){
+			int perAngle = sprite.getFrameCount() / angles;
+			
+			// Change to clockwise
+			if (!srcClockwise)
+				reverseAngles(sprite, angles);
+
+			// Shift
+			int delta = (dstAngle - srcAngle + angles) % angles;
+			int limit = delta * perAngle; 
+			int[] indexes = new int[limit];
+			for (int i = 0; i < limit; ++i){
+				indexes[i] = i;
+			}
+			shiftFrames(sprite, indexes, (angles - delta) * perAngle);
+			
+			if (!dstClockwise)
+				reverseAngles(sprite, angles);
+
 		}
 	}
 	

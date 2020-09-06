@@ -20,7 +20,7 @@ public class ExportImagesDialog extends PropDialog {
 	private MainFrame mainFrame;
 	private Choice imageModeChoice, anchorModeChoice;
 	private NumberField rowsText, columnsText, paddingText;
-	private Checkbox outlineCheckbox, smudgeCheckbox, csvCheckbox;
+	private Checkbox outlineCheckbox, smudgeCheckbox, csvCheckbox, selectedOnlyCheckbox;
 	private Button backgroundButton;
 	
 	static final int[] IMAGE_MODES = {
@@ -42,6 +42,7 @@ public class ExportImagesDialog extends PropDialog {
 			put("columns", 1);
 			put("padding", 0);
 			put("backgroundColor", 0xffff00ff);
+			put("selectedOnly", 0);
 		}
 	};
 	
@@ -66,6 +67,7 @@ public class ExportImagesDialog extends PropDialog {
 		outlineCheckbox = this.addCheckbox("Checkbox.outline");
 		smudgeCheckbox = this.addCheckbox("Checkbox.smudge");
 		csvCheckbox = this.addCheckbox("Checkbox.csv");
+		selectedOnlyCheckbox = this.addCheckbox("Checkbox.selectedOnly");
 		
 		rowsText.setRange(1, null);
 		columnsText.setRange(1, null);
@@ -116,6 +118,8 @@ public class ExportImagesDialog extends PropDialog {
 		paddingText.setText(settings.get("padding"));
 		backgroundButton.setBackground(new Color(settings.get("backgroundColor")));
 		
+		selectedOnlyCheckbox.setState(settings.get("selectedOnly") != 0);
+		
 	}
 
 	@Override
@@ -139,6 +143,8 @@ public class ExportImagesDialog extends PropDialog {
 		settings.put("backgroundColor", backgroundButton.getBackground().getRGB());
 		
 		settings.put("playerColor", mainFrame.getPreview().playerColorId);
+		
+		settings.put("selectedOnly", selectedOnlyCheckbox.getState() ? 1 : 0);
 	}
 
 }

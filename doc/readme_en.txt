@@ -1,4 +1,4 @@
-SMX Workshop Beta 1.4 Help
+SMX Workshop Beta 1.5 Help
 
 About
 ====================================================

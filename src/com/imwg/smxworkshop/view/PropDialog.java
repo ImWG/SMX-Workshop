@@ -44,7 +44,7 @@ public class PropDialog extends Dialog {
 		super(owner);
 	}
 	
-	protected PropDialog(Frame owner, Class<?> dialogClass) {
+	PropDialog(Frame owner, Class<?> dialogClass) {
 		super(owner);
 		loadProperties(dialogClass);
 		

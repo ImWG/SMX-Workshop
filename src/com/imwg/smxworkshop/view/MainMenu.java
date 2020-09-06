@@ -43,7 +43,7 @@ public class MainMenu extends MenuBar{
 	private MenuListener changePaletteListener;
 	private List<CheckMenuItem> checkMenuItems = new ArrayList<CheckMenuItem>();
 	
-	private Menu setPaletteMenu, changePaletteMenu, languageMenu;
+	private Menu setPaletteMenu, changePaletteMenu, languageMenu, rencentFilesMenu;
 	
 	public void setPaletteMenu(){
 		setPaletteMenu.removeAll();
@@ -95,6 +95,30 @@ public class MainMenu extends MenuBar{
 		}
 	}
 	
+	public void setRencentFilesMenu(){
+		rencentFilesMenu.removeAll();
+		for (final String fileName : Configuration.getRecentFiles()){
+			MenuItem menu = new MenuItem(fileName);
+			rencentFilesMenu.add(menu);
+			menu.addActionListener(new ActionListener(){
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					MainFrame mainFrame = getMainFrame();
+					File file = new File(fileName);
+					if (file != null){
+						String fname = file.getAbsolutePath();
+						mainFrame.popupProcessDialog();
+						mainFrame.loadSprite(file);
+						mainFrame.closeProcessDialog();
+						MainFrame.currentSpritePath = fname;
+						mainFrame.addRecentFile(fname);
+					}
+				}
+			});
+		}
+	}
+	
+	
 	public MainMenu() {
 		super();
 		
@@ -114,12 +138,14 @@ public class MainMenu extends MenuBar{
 						mainFrame.loadSprite(file);
 						mainFrame.closeProcessDialog();
 						MainFrame.currentSpritePath = fname;
+						mainFrame.addRecentFile(fname);
 					}
 					break;
 					
 				case "root.File.Save":
 					if (mainFrame.currentFile != null){
 						mainFrame.getModel().saveSprite(mainFrame.getSprite(), new File(mainFrame.currentFile));
+						mainFrame.addRecentFile(mainFrame.currentFile);
 						return;
 					}
 					
@@ -128,6 +154,7 @@ public class MainMenu extends MenuBar{
 					if (file != null){
 						mainFrame.getModel().saveSprite(mainFrame.getSprite(), file);
 						MainFrame.currentSpritePath = file.getAbsolutePath();
+						mainFrame.addRecentFile(file.getAbsolutePath());
 					}
 					break;
 					
@@ -148,7 +175,7 @@ public class MainMenu extends MenuBar{
 								}
 								mainFrame.loadSprite(sprite);
 								mainFrame.closeProcessDialog();
-								MainFrame.currentSpritePath = files[0].getAbsolutePath();						
+								MainFrame.currentImagePath = files[0].getAbsolutePath();
 							}
 
 						});
@@ -167,16 +194,31 @@ public class MainMenu extends MenuBar{
 								mainFrame.popupProcessDialog();
 								try {
 									SpriteIO.exportToImages(mainFrame.getSprite(),
-											files2[0], ExportImagesDialog.settings);
+											files2[0], ExportImagesDialog.settings,
+											mainFrame.getSelectedFrames());
 								} catch (IOException e1) {
 									e1.printStackTrace();
 								}
 								mainFrame.closeProcessDialog();
-								MainFrame.currentSpritePath = files2[0].getAbsolutePath();
+								MainFrame.currentImagePath = files2[0].getAbsolutePath();
 							}
 						});
 						dialog.setVisible(true);
 					}
+					break;
+				
+				case "root.File.Comment":
+					final String comment = (String) JOptionPane.showInputDialog(
+							mainFrame, null,
+							ViewConfig.getString("MainMenu.File.Comment"),
+							JOptionPane.QUESTION_MESSAGE, null, null,
+							mainFrame.getSprite().getMemo());
+					if (comment != null)
+						mainFrame.getSprite().setMemo(comment);
+					break;
+					
+				case "root.File.DefaultComment":
+					Configuration.setDefaultMemo(!Configuration.isDefaultMemo());
 					break;
 					
 				case "root.File.Exit":
@@ -485,6 +527,46 @@ public class MainMenu extends MenuBar{
 					}
 					break;
 					
+				case "root.Tools.CompAngl": {
+					String numStr = JOptionPane.showInputDialog(
+							ViewConfig.getString("AdjustAngleDialog.Label.angles"), 
+							Integer.toString(AdjustAngleDialog.angleCount));
+					if (numStr != null){
+						final int angles = Integer.parseInt(numStr);
+						model.completeMirrorAngles(sprite, angles);
+						AdjustAngleDialog.angleCount = angles;
+						mainFrame.reload();
+					}
+				} break;
+				
+				case "root.Tools.RemoAngl": {
+					String numStr = JOptionPane.showInputDialog(
+							ViewConfig.getString("AdjustAngleDialog.Label.angles"), 
+							Integer.toString(AdjustAngleDialog.angleCount));
+					if (numStr != null){
+						final int angles = Integer.parseInt(numStr);
+						model.removeMirrorAngles(sprite, angles);
+						AdjustAngleDialog.angleCount = angles;
+						mainFrame.reload();
+					}
+				} break;
+				
+				case "root.Tools.AdjAngl": {
+					AdjustAngleDialog dialog = new AdjustAngleDialog(mainFrame);
+					dialog.setConfirmedListener(new ActionListener(){
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							model.adjustAngles(mainFrame.getSprite(), AdjustAngleDialog.angleCount,
+									AdjustAngleDialog.srcAngle, AdjustAngleDialog.dstAngle,
+									AdjustAngleDialog.srcClockwise, AdjustAngleDialog.dstClockwise
+									);
+							mainFrame.refreshAll();
+						}
+					});
+					dialog.setVisible(true);
+					mainFrame.reload();
+				} break;
+					
 				}
 			}
 		};
@@ -540,6 +622,13 @@ public class MainMenu extends MenuBar{
 	
 	public void onAddCheckboxMenuItem(final CheckMenuItem menuItem, final String itemKey) {
 		switch (itemKey){
+		case "root.File.DefaultComment":
+			menuItem.setStateListener(new CheckStateListener(){
+				@Override
+				public boolean getState() {
+					return Configuration.isDefaultMemo();
+				}
+			}); break;
 		case "root.View.Main": 
 			menuItem.setStateListener(new CheckStateListener(){
 				@Override
@@ -655,7 +744,7 @@ public class MainMenu extends MenuBar{
 				@Override
 				public boolean getState() {
 					if (getMainFrame().sprite != null)
-						return getMainFrame().sprite.playerMode == Sprite.PLAYER_PALETTE_AOK;
+						return getMainFrame().sprite.getPlayerMode() == Sprite.PLAYER_PALETTE_AOK;
 					return false;
 				}
 			}); break;
@@ -664,7 +753,7 @@ public class MainMenu extends MenuBar{
 				@Override
 				public boolean getState() {
 					if (getMainFrame().sprite != null)
-						return getMainFrame().sprite.playerMode == Sprite.PLAYER_PALETTE_AOE;
+						return getMainFrame().sprite.getPlayerMode() == Sprite.PLAYER_PALETTE_AOE;
 					return false;
 				}
 			}); break;
@@ -673,7 +762,7 @@ public class MainMenu extends MenuBar{
 				@Override
 				public boolean getState() {
 					if (getMainFrame().sprite != null)
-						return getMainFrame().sprite.playerMode == Sprite.PLAYER_PALETTE_AOEDE;
+						return getMainFrame().sprite.getPlayerMode() == Sprite.PLAYER_PALETTE_AOEDE;
 					return false;
 				}
 			}); break;
@@ -682,7 +771,7 @@ public class MainMenu extends MenuBar{
 				@Override
 				public boolean getState() {
 					if (getMainFrame().sprite != null)
-						return getMainFrame().sprite.playerMode == Sprite.PLAYER_PALETTE_DE;
+						return getMainFrame().sprite.getPlayerMode() == Sprite.PLAYER_PALETTE_DE;
 					return false;
 				}
 			}); break;
@@ -700,7 +789,9 @@ public class MainMenu extends MenuBar{
 			menuItem.addActionListener(helpListener);
 		}
 		
-		if (itemKey.equals("root.Edit.SetPal")){
+		if (itemKey.equals("root.File.Recent")){
+			this.rencentFilesMenu = (Menu) menuItem;
+		}else if (itemKey.equals("root.Edit.SetPal")){
 			this.setPaletteMenu = (Menu) menuItem;
 		}else if (itemKey.equals("root.Edit.ConvPal")){
 			this.changePaletteMenu = (Menu) menuItem;

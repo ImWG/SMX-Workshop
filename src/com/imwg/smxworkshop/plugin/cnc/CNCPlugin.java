@@ -99,7 +99,7 @@ public class CNCPlugin extends Plugin{
 			
 		}else if (name.equals("PlayerColor")){
 			Sprite sprite = mainFrame.getSprite();			
-			Palette playerPalette = Palette.getPlayerPalette(sprite.playerMode, PLAYER_COLOR_INDEX);
+			Palette playerPalette = Palette.getPlayerPalette(sprite.getPlayerMode(), PLAYER_COLOR_INDEX);
 			int[] mapping = Palette.getMappingArray(cncPlayerPalette, playerPalette);
 			
 			for (int frameId : mainFrame.getSelectedFrames()){
@@ -166,7 +166,7 @@ public class CNCPlugin extends Plugin{
 					Palette.getPlayerPalette(playerMode, PLAYER_COLOR_INDEX));
 
 		SMXSprite sprite = new SMXSprite();
-		sprite.playerMode = playerMode;
+		sprite.setPlayerMode(playerMode);
 		long[] offsets = new long[frameCount];
 		for (int index=0; index<frameCount; ++index){
 			int left = SpriteIO.readInteger(fis, 2);
@@ -230,7 +230,7 @@ public class CNCPlugin extends Plugin{
 		
 		// Mapping from original player colors to CNC's
 		int[] playerMap = Palette.getMappingArray(
-				Palette.getPlayerPalette(sprite.playerMode, PLAYER_COLOR_INDEX),
+				Palette.getPlayerPalette(sprite.getPlayerMode(), PLAYER_COLOR_INDEX),
 				cncPlayerPalette);
 		
 		// Mapping for color #0 and color #16~31

@@ -56,6 +56,7 @@ public class MainFrame extends Frame {
 	SpritePreview preview = new SpritePreview();
 	Label fileLabel, statusLabel;
 	FrameListPanel listPanel;
+	NumberField speedField;
 	Canvas canvas;
 	
 	public int displayFlags = 0x3;
@@ -69,8 +70,9 @@ public class MainFrame extends Frame {
 	public boolean animateLoop = true;
 	public String currentFile = null;
 	private boolean processing;
-		
+	
 	static private String processString;
+	static private boolean processBreakable;
 	
 	static public String currentSpritePath = ".";
 	static public String currentImagePath = ".";
@@ -80,6 +82,7 @@ public class MainFrame extends Frame {
 	
 	static final public void setProcessString(String s){ // For loading message
 		processString = s;
+		processBreakable = false;
 	}
 	
 	public MainModel getModel(){
@@ -114,7 +117,7 @@ public class MainFrame extends Frame {
 					refreshStatusBar();
 				}
 				while (animated){
-					Thread.sleep(10);
+					Thread.sleep(Configuration.getAnimationSpeed());
 					++current;
 					if (current >= sprite.getFrameCount()){
 						if (!animateLoop){
@@ -289,16 +292,42 @@ public class MainFrame extends Frame {
 		
 		processDialog.setVisible(true);
 		processing = true;
+		processBreakable = false;
 		this.setEnabled(false);
 		new Thread(new Runnable(){
 			@Override
 			public void run() {
+				final int delayLimit = 200;
+				int delayed = 0;
 				Label processInfo = new Label();
 				processInfo.setBounds(16, 38, 168, 24);
+				Label processHint = new Label();
+				processHint.setBounds(16, 64, 168, 24);
+				processHint.setText("Press Pause to Break...");
+				processHint.setVisible(false);
 				processDialog.add(processInfo);
+				processDialog.add(processHint);
+				processDialog.getToolkit().addAWTEventListener(new AWTEventListener(){
+					@Override
+					public void eventDispatched(AWTEvent event) {
+						if (processBreakable){
+							if (((KeyEvent) event).getKeyCode() == KeyEvent.VK_PAUSE)
+								closeProcessDialog();
+						}
+					}
+				}, AWTEvent.KEY_EVENT_MASK);
 				try {
 					while (processing){
 						processInfo.setText(processString);
+						if (!processBreakable){
+							if (++delayed >= delayLimit){ // Bug splat
+								processBreakable = true;
+								processHint.setVisible(true);
+								delayed = 0;
+							}else{
+								processHint.setVisible(false);
+							}
+						}
 						Thread.sleep(20);
 					}
 				} catch (InterruptedException e) {
@@ -312,6 +341,11 @@ public class MainFrame extends Frame {
 		processDialog.dispose();
 		processing = false;
 		this.setEnabled(true);
+	}
+	
+	public void addRecentFile(String file){
+		Configuration.addRecentFile(file);
+		((MainMenu) getMenuBar()).setRencentFilesMenu();
 	}
 	
 	
@@ -399,15 +433,17 @@ public class MainFrame extends Frame {
 					}
 					g.setColor(Color.BLACK);
 					g.setXORMode(Color.WHITE);
-					g.drawLine(x0-12, y0-6, x0+12, y0+6);
-					g.drawLine(x0+12, y0-6, x0-12, y0+6);
+					int anchorSize = Configuration.getAnchorSize();
+					g.drawLine(x0-anchorSize*2, y0-anchorSize, x0+anchorSize*2, y0+anchorSize);
+					g.drawLine(x0+anchorSize*2, y0-anchorSize, x0-anchorSize*2, y0+anchorSize);
 				}
 			}
 		};
 		canvas.setBackground(ViewConfig.backgroundColor);
 		
 		Panel CenterPanel = new Panel(new BorderLayout());
-
+		Panel rightPanel = new Panel(new BorderLayout());
+		
 		listPanel = new FrameListPanel(this){
 			@Override
 			public void onSelect(int index, int mode){
@@ -424,6 +460,26 @@ public class MainFrame extends Frame {
 		listPanel.setPreferredSize(new Dimension(150, getHeight()));
 		
 		listPanel.setBackground(ViewConfig.backgroundColor);
+		speedField = new NumberField(true);
+		speedField.setRange(0, null);
+		speedField.addActionListener(new ActionListener(){
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				Configuration.setAnimationSpeed(speedField.getInteger());
+			}
+		});
+		speedField.addMouseWheelListener(new MouseWheelListener(){
+			@Override
+			public void mouseWheelMoved(MouseWheelEvent e) {
+				speedField.setText(speedField.getInteger() - e.getWheelRotation() * 5);
+				speedField.adjust();
+				Configuration.setAnimationSpeed(speedField.getInteger());
+			}
+			
+		});
+		speedField.setText(Configuration.getAnimationSpeed());
+		rightPanel.add(listPanel, BorderLayout.CENTER);
+		rightPanel.add(speedField, BorderLayout.SOUTH);
 		
 		
 		canvas.addMouseListener(new MouseListener(){
@@ -485,13 +541,14 @@ public class MainFrame extends Frame {
 			@Override
 			public void mouseWheelMoved(MouseWheelEvent e) {
 				scaleRate -= e.getWheelRotation() * 5;
+				scaleRate = Math.max(scaleRate, 0);
 				canvas.repaint();
 			}
 			
 		});
 		
 		CenterPanel.add(canvas, BorderLayout.CENTER);
-		CenterPanel.add(listPanel, BorderLayout.EAST);
+		CenterPanel.add(rightPanel, BorderLayout.EAST);
 				
 		add(CenterPanel, BorderLayout.CENTER);
 
@@ -547,7 +604,8 @@ public class MainFrame extends Frame {
 								}
 								mainFrame.loadSprite(sprite);
 								mainFrame.closeProcessDialog();
-								MainFrame.currentSpritePath = files[0].getAbsolutePath();						
+								MainFrame.currentSpritePath = files[0].getAbsolutePath();
+								mainFrame.addRecentFile(files[0].getAbsolutePath());
 							}
 
 						});
@@ -581,6 +639,7 @@ public class MainFrame extends Frame {
 		
 		MainMenu menu = new MainMenu();
 		menu.setPaletteMenu();
+		menu.setRencentFilesMenu();
 		this.setMenuBar(menu);
 		menu.refreshCheckboxMenuItems();
 		
@@ -601,12 +660,11 @@ public class MainFrame extends Frame {
 		    	return fd.getFileSystemView().getSystemIcon(f);
 		    }
 		});
-		FileFilter ff = new FileNameExtensionFilter("Supported Files", "SLP","SMP","SMX");
+		FileFilter ff = new FileNameExtensionFilter("Supported Files", "SMX", "SLP","SMP");
 		fd.setFileFilter(ff);
 		fd.setFileFilter(new FileNameExtensionFilter("SLP File", "SLP"));
 		fd.setFileFilter(new FileNameExtensionFilter("SMP File", "SMP"));
 		fd.setFileFilter(new FileNameExtensionFilter("SMX File", "SMX"));
-		fd.setFileFilter(new FileNameExtensionFilter("SHP File", "SHP"));
 		fd.setFileFilter(ff); // Default selection 
 		fd.setCurrentDirectory(new File(MainFrame.currentSpritePath));
 		fd.setFileSelectionMode(JFileChooser.FILES_ONLY);

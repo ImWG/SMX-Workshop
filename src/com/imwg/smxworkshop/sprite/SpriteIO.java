@@ -18,6 +18,7 @@ import java.util.Map;
 
 import javax.imageio.ImageIO;
 
+import com.imwg.smxworkshop.model.Configuration;
 import com.imwg.smxworkshop.view.MainFrame;
 
 final public class SpriteIO {
@@ -25,6 +26,8 @@ final public class SpriteIO {
 	public static final int IMAGE_MODE_AUTO = 0;
 	public static final int IMAGE_MODE_BYALPHA = 1;
 	public static final int IMAGE_MODE_SEPARATESHADOW = 2;
+	public static final int IMAGE_MODE_SEPARATEPLAYER = 3;
+	public static final int IMAGE_MODE_SEPARATEPLAYERMASK = 4;
 	public static final int IMAGE_MODE_SHADOWONLY = 8;
 	public static final int IMAGE_MODE_MASK = 0x0f;
 	public static final int IMAGE_MODE_OUTLINE_MASK = 0x10;
@@ -1407,8 +1410,8 @@ final public class SpriteIO {
 			fos.write("2.0N".getBytes()); // Header
 			writeInteger(fos, count, 4); // Count
 			
-			//byte[] memoBytes = sprite.memo.getBytes();  
-			byte[] memoBytes = SLPSprite.slpmemo.getBytes();
+			byte[] memoBytes = Configuration.isDefaultMemo() ?
+					SLPSprite.slpmemo.getBytes() : sprite.memo.getBytes();
 			if (memoBytes.length >= 24){
 				fos.write(memoBytes, 0, 24); // Memo
 			}else{
@@ -1502,7 +1505,8 @@ final public class SpriteIO {
 			writeInteger(fos, size, 4); // Size
 			writeInteger(fos, smpSize, 4); // Unknown, allocation memory size?
 			
-			byte[] memoBytes = new byte[16];  
+			byte[] memoBytes = Configuration.isDefaultMemo() ?
+					SLPSprite.slpmemo.getBytes() : sprite.memo.getBytes();
 			if (memoBytes.length >= 16){
 				fos.write(memoBytes, 0, 16); // Memo
 			}else{
@@ -1585,6 +1589,14 @@ final public class SpriteIO {
 		return false;
 	}
 	
+	
+	static private int getBrightness(int pixel){
+		int red = pixel >> 16 & 0xff;
+		int green = pixel >> 8 & 0xff;
+		int blue = pixel & 0xff;
+		int max = Math.max(red, Math.max(green, blue));
+		return (max + red + green + blue) >> 2;
+	}
 	
 	static public Sprite importFromImages(Sprite sprite, File[] files,
 			Map<String, Integer> settings) throws IOException{
@@ -1713,11 +1725,11 @@ final public class SpriteIO {
 								if (alpha == 255){ // As Player Color
 									frame.setPixel(Sprite.DATA_IMAGE, x, y, 
 											ppal.mapping(pixel, rgbMode) + Sprite.PIXEL_PLAYER_START);
-								}else if (alpha == 254){ // As Normal
+								}else if (alpha >= 128){ // As Normal
 									frame.setPixel(Sprite.DATA_IMAGE, x, y, pal.mapping(pixel, rgbMode));
 								}else{ // As shadow
-									int brightness = ((pixel >> 16 & 0xff) + (pixel >> 8 & 0xff) + (pixel & 0xff)) / 3;
-									if (alpha < 255 && alpha * brightness < 32258){
+									int brightness = getBrightness(pixel);
+									if (alpha < 128 && alpha * brightness < 32258){
 										frame.setPixel(Sprite.DATA_SHADOW, x, y, alpha);
 									}
 								}
@@ -1733,8 +1745,8 @@ final public class SpriteIO {
 										continue;
 								
 								int alpha = pixel >> 24 & 0xff;
-								int brightness = ((pixel >> 16 & 0xff) + (pixel >> 8 & 0xff) + (pixel & 0xff)) / 3;
-								if (alpha < 255 && alpha * brightness < 32258){
+								int brightness = getBrightness(pixel);
+								if (alpha < 128 && alpha * brightness < 32258){
 									frame.setPixel(Sprite.DATA_SHADOW, x, y, alpha);
 								}else{
 									if (ppal != null){
@@ -1838,8 +1850,8 @@ final public class SpriteIO {
 		return stride;
 	}
 	
-	static public int exportToImages(Sprite sprite, File file, Map<String, Integer> settings)
-			throws IOException{
+	static public int exportToImages(Sprite sprite, File file, Map<String, Integer> settings,
+			int[] frameIds) throws IOException{
 		
 		if (sprite.getFrameCount() <= 0)
 			return 0;
@@ -1879,10 +1891,17 @@ final public class SpriteIO {
 		preview.setSprite(sprite);
 		preview.playerColorId = settings.get("playerColor");
 		preview.refresh();
-		while (!preview.getFrameStatus(sprite.getFrameCount() - 1));
+		
+		if (settings.get("selectedOnly") == 0){
+			frameIds = new int[sprite.getFrameCount()];
+			for (int i = 0; i < sprite.getFrameCount(); ++i){
+				frameIds[i] = i;
+			}
+		}
 		
 		int perImage = rows * columns;
-		int imageCount = (int) Math.ceil(((double)sprite.getFrameCount()) / perImage);
+		int frameCount = frameIds.length;
+		int imageCount = (int) Math.ceil(((double)frameCount) / perImage);
 		
 		int frameWidth = 0, frameHeight = 0;
 		int frameX = 0, frameY = 0;
@@ -1892,7 +1911,7 @@ final public class SpriteIO {
 		
 		int offset = -perImage;
 		int imageIndex = 0;
-		for (int index = 0; index < sprite.getFrameCount(); ++index){
+		for (int index = 0; index < frameCount; ++index){
 			// Create a new image
 			if (index >= offset + perImage){
 				// Finish an image
@@ -1909,7 +1928,7 @@ final public class SpriteIO {
 				}
 				
 				offset += perImage;
-				int limit = Math.min(perImage, sprite.getFrameCount() - offset);
+				int limit = Math.min(perImage, frameCount - offset);
 				
 				// Calculate size of strip frames
 				switch (anchorMode){
@@ -1917,7 +1936,7 @@ final public class SpriteIO {
 					frameWidth = 0;
 					frameHeight = 0;
 					for (int i = 0; i < limit; ++i){
-						Sprite.Frame frame = sprite.getFrame(i + offset);
+						Sprite.Frame frame = sprite.getFrame(frameIds[i + offset]);
 						frameWidth = Math.max(frameWidth, frame.getWidth()); 
 						frameHeight = Math.max(frameHeight, frame.getHeight());
 					}
@@ -1925,7 +1944,7 @@ final public class SpriteIO {
 				case ANCHOR_MODE_ALIGN: // Aligned
 					int ml = 0, mr = 0, mu = 0, md = 0;
 					for (int i = 0; i < limit; ++i){
-						Sprite.Frame frame = sprite.getFrame(i + offset);
+						Sprite.Frame frame = sprite.getFrame(frameIds[i + offset]);
 						int anchorX = frame.getAnchorX(), anchorY = frame.getAnchorY();
 						ml = Math.max(ml, anchorX);
 						mu = Math.max(mu, anchorY);
@@ -1939,7 +1958,7 @@ final public class SpriteIO {
 					break;
 				case ANCHOR_MODE_CENTER: // Aligned, center
 					for (int i = 0; i < limit; ++i){
-						Sprite.Frame frame = sprite.getFrame(i + offset);
+						Sprite.Frame frame = sprite.getFrame(frameIds[i + offset]);
 						int anchorX = frame.getAnchorX(), anchorY = frame.getAnchorY();
 						frameWidth = Math.max(frameWidth, Math.max(anchorX, frame.getWidth() - anchorX));
 						frameHeight = Math.max(frameHeight, Math.max(anchorY, frame.getHeight() - anchorY));
@@ -1969,7 +1988,7 @@ final public class SpriteIO {
 			int fy0 = frameHeight * ((index - offset) / columns);
 			int x0 = fx0 + padding, y0 = fy0 + padding;
 			
-			Sprite.Frame frame = sprite.getFrame(index);
+			Sprite.Frame frame = sprite.getFrame(frameIds[index]);
 			
 			if (anchorMode == ANCHOR_MODE_TIGHT){
 				x0 += frame.getAnchorX(); y0 += frame.getAnchorY();
@@ -1980,6 +1999,9 @@ final public class SpriteIO {
 				anchorList.append(x0 - fx0)
 						.append(", ").append(y0 - fy0).append("\r\n");
 			}
+			
+			// Wait for Notification
+			while (!preview.getFrameStatus(frameIds[index]));
 			
 			// Draw background color
 			if (background){

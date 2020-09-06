@@ -33,8 +33,8 @@ abstract public class Sprite implements Iterable<Sprite.Frame> {
 	
 	
 	List<Frame> frames = new LinkedList<Frame>();
-	public String memo;
-	public int playerMode;
+	String memo;
+	int playerMode;
 	
 	abstract public int getVersion();
 	
@@ -48,6 +48,20 @@ abstract public class Sprite implements Iterable<Sprite.Frame> {
 		for (int i=0; i<sprite.getFrameCount(); ++i){
 			this.frames.add(this.createFrame(sprite.getFrame(i)));
 		}
+	}
+	
+	public String getMemo(){
+		return memo;
+	}
+	public void setMemo(String memo){
+		this.memo = memo;
+	}
+	
+	public int getPlayerMode(){
+		return playerMode;
+	}
+	public void setPlayerMode(int playerMode){
+		this.playerMode = playerMode;
 	}
 	
 	public Frame getFrame(int index){

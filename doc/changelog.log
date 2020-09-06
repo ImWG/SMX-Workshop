@@ -2,6 +2,19 @@ Change log
 ===============================
 
 
+Beta 1.06
+- Fixed one bug that only extension name of all capital letters can save as SLP files.
+- Fixed bugs of not keeping image import/export directory.
+- Better distinguishing main image and shadow.
+- Added editing sprite's memo.
+- You can export selected frames only now.
+
+Beta 1.05
+- Recent files are listed now.
+- Added complete/remove mirrored angles and adjust angles sequence functions.
+- Custom animation speed and anchor size.
+- No scale to negative now.
+
 Beta 1.04
 - Adjustment to frames on brightness, contrast, hue, saturation and value.
 - Load AOE:DE SLP sprite files.

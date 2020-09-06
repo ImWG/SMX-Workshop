@@ -1,6 +1,8 @@
 package com.imwg.smxworkshop.view;
 
 import java.awt.TextField;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 
@@ -58,6 +60,13 @@ public class NumberField extends TextField {
 					setText("0");
 				}
 				
+				adjust();
+			}
+		});
+		
+		this.addActionListener(new ActionListener(){
+			@Override
+			public void actionPerformed(ActionEvent e) {
 				adjust();
 			}
 		});
