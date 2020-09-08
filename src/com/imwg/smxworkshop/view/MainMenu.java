@@ -566,6 +566,16 @@ public class MainMenu extends MenuBar{
 					dialog.setVisible(true);
 					mainFrame.reload();
 				} break;
+				
+				case "root.Tools.PlayerToNormal": {
+					selected = mainFrame.getSelectedFrames();
+					filter = new FrameFilter();
+					for (int index : selected){
+						filter.setFrame(sprite.getFrame(index));
+						filter.playerColorToNormal(mainFrame.preview.playerColorId);
+					}
+					mainFrame.refreshAll();
+				} break;
 					
 				}
 			}

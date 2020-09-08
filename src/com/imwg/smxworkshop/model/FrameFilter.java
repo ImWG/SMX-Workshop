@@ -31,7 +31,6 @@ public class FrameFilter {
 			md = Math.max(frame.getHeight(Sprite.DATA_IMAGE) - frame.getAnchorY(Sprite.DATA_IMAGE),
 					frame.getHeight(Sprite.DATA_SHADOW) - frame.getAnchorY(Sprite.DATA_SHADOW));
 			
-			System.out.println(frame.getSprite());
 			frame.expand(Sprite.DATA_IMAGE, ml, mu, mr, md);
 			int dx = ml - frame.getAnchorX(Sprite.DATA_IMAGE);
 			int dy = mu - frame.getAnchorY(Sprite.DATA_IMAGE);
@@ -568,6 +567,21 @@ public class FrameFilter {
 		frame.changePixelsByPalette(mapPal, dstPal, player);
 	}
 	
+	public void playerColorToNormal(int playerColorId){
+		int[] mapping = Palette.getMappingArray(
+				Palette.getPlayerPalette(frame.getPlayerColorMode(), playerColorId), 
+				Palette.getPalette(frame.getPalette()));
+		for (int i = 0; i < frame.getHeight(Sprite.DATA_IMAGE); ++i){
+			for (int j = 0; j < frame.getWidth(Sprite.DATA_IMAGE); ++j){
+				int pixel = frame.getPixel(Sprite.DATA_IMAGE, j, i);
+				if (pixel >= Sprite.PIXEL_PLAYER_START){
+					frame.setPixel(Sprite.DATA_IMAGE, j, i,
+							mapping[pixel - Sprite.PIXEL_PLAYER_START]);
+				}
+			}
+		}
+	}
+	
 	
 	final public static int adjustColorBrightness(int rgb, double brightness, double contrast){
 		// Reference: https://www.cnblogs.com/skiwnchiwns/p/10130833.html
@@ -608,4 +622,5 @@ public class FrameFilter {
 		
 		return Color.HSBtoRGB(hsvs[0], hsvs[1], hsvs[2]) | color.getAlpha() << 24;
 	}
+	
 }
