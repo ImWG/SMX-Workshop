@@ -28,11 +28,11 @@ public class SLPSprite extends Sprite {
 		private short[] image;
 		private int[] props = new int[4]; // {Width, Height, AnchorX, AnchorY}
 		
-		public Frame(){
+		private Frame(){
 			super();
 		}
 		
-		public Frame(Sprite.Frame frame){
+		private Frame(Sprite.Frame frame){
 			super();
 			if (frame.getVersion() == Sprite.VERSION_SLP){
 				SLPSprite.Frame frame1 = (SLPSprite.Frame) frame;

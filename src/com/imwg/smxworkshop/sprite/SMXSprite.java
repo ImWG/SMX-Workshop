@@ -22,7 +22,7 @@ public class SMXSprite extends Sprite{
 		private short[] image;
 		private byte[] shadow;
 		private byte[] outline;
-		private short[] smudge; // TODO
+		private short[] smudge;
 		private int[] props = new int[16]; // {Width, Height, AnchorX, AnchorY} x 3
 		
 		private Frame(){

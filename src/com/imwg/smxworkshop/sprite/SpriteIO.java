@@ -330,7 +330,7 @@ final public class SpriteIO {
 		
 		for (int index=0; index<frameCount; ++index){
 			
-			SLPSprite.Frame frame = sprite.new Frame();
+			SLPSprite.Frame frame = sprite.createFrame();
 			
 			fis.skip(8);
 			frame.palette = readInteger(fis, 4);
@@ -494,7 +494,7 @@ final public class SpriteIO {
 		fis.skip(addresses[0] - frameCount * 4 - 64);
 
 		for (int index=0; index<frameCount; ++index){
-			SLPSprite.Frame frame = sprite.new Frame();
+			SLPSprite.Frame frame = sprite.createFrame();
 			sprite.frames.add(index, frame);
 			frame.palette = 0; // To be found
 			
@@ -838,7 +838,7 @@ final public class SpriteIO {
 		public CompiledSLPFrame(Sprite.Frame frame){
 			SLPSprite sprite = new SLPSprite(); 
 			if (!(frame instanceof SLPSprite.Frame)){
-				frame = sprite.new Frame(frame);
+				frame = sprite.createFrame(frame);
 			}
 			this.frame = frame;
 			int width = frame.getWidth(Sprite.DATA_IMAGE);

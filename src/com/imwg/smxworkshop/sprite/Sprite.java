@@ -11,6 +11,7 @@ abstract public class Sprite implements Iterable<Sprite.Frame> {
 	public static final int DATA_SMUDGE = 3;
 	static final int[] DATA_TYPES = new int[]{DATA_IMAGE, DATA_SHADOW, DATA_OUTLINE, DATA_SMUDGE};
 	
+	
 	static public final int PIXEL_NULL = -1;
 	static public final int PIXEL_PLAYER_START = 0x10000;
 	
@@ -246,6 +247,68 @@ abstract public class Sprite implements Iterable<Sprite.Frame> {
 			setPixel(type, x + getAnchorX(type), y + getAnchorY(type), value);
 		}
 		
+		
+		public void filterPixels(PixelFilter filter, int type){
+			for (int i=0; i<getHeight(type); ++i){
+				for (int j=0; j<getWidth(type); ++j){
+					int pixel = getPixel(type, j, i);
+					if (pixel != Sprite.PIXEL_NULL)
+						setPixel(type, j, i, filter.onFilter(pixel));
+				}
+			}
+		}
+		
+		public Iterable<PixelPointer> getPixels(final int type){
+			return new Iterable<PixelPointer>(){
+				@Override
+				public Iterator<PixelPointer> iterator() {
+					return new Iterator<PixelPointer>(){
+						Sprite.Frame frame = Sprite.Frame.this;
+						private PixelPointer pointer = new PixelPointer(frame, type);
+						@Override
+						public boolean hasNext() {
+							if (pointer.y < frame.getHeight(type) - 1)
+								return true;
+							else
+								return pointer.x < frame.getWidth(type) - 1;
+						}
+						@Override
+						public PixelPointer next() {
+							if (++pointer.x >= frame.getWidth(type)){
+								pointer.x = 0;
+								++pointer.y;
+							}
+							return pointer;
+						}
+						@Override
+						public void remove() {
+							setPixel(type, pointer.x, pointer.y, Sprite.PIXEL_NULL);			
+						}
+					};
+				}
+			};
+		}
+		
+	}
+	
+	static public interface PixelFilter{
+		public int onFilter(int pixel);
+	}
+	
+	static public class PixelPointer{ //TODO
+		Sprite.Frame frame;
+		final private int type;
+		int x = -1, y = 0;
+		public PixelPointer(Sprite.Frame frame, int type){
+			this.frame = frame;
+			this.type = type;
+		}
+		public void set(int pixel){
+			frame.setPixel(type, x, y, pixel);
+		}
+		public int get(){
+			return frame.getPixel(type, x, y);
+		}
 	}
 	
 
