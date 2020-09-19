@@ -41,7 +41,8 @@ public class CNCPlugin extends Plugin{
 	@Override
 	public String[] onGetMenuItems() {
 		return new String[]{"Load", "Load SHP File...", "Save", "Save as SHP File...",
-				"-", "-", "Shadow","Combine Shadow", "PlayerColor", "Convert Selected Player Color"};
+				"-", "-", "Shadow","Combine Shadow", "PlayerColor", "Convert Selected Player Color",
+				"-", "-", "ImportPalette", "Import Palette..."};
 	}
 
 	@Override
@@ -120,6 +121,42 @@ public class CNCPlugin extends Plugin{
 				}
 			}
 			mainFrame.refreshAll();
+			
+		}else if (name.equals("ImportPalette")){
+			final JFileChooser fd = new JFileChooser();
+			fd.setDialogType(JFileChooser.OPEN_DIALOG);
+			fd.setFileFilter(new FileNameExtensionFilter("Palette File", "PAL"));
+			fd.setFileView(new FileView() {
+			    public Icon getIcon(File f) {
+			    	return fd.getFileSystemView().getSystemIcon(f);
+			    }
+			});
+			fd.setCurrentDirectory(new File(MainFrame.currentImagePath));
+			fd.setFileSelectionMode(JFileChooser.FILES_ONLY);
+			fd.setMultiSelectionEnabled(false);
+
+			if (fd.showDialog(mainFrame, null) == JFileChooser.APPROVE_OPTION){
+				File f = fd.getSelectedFile();
+				FileInputStream is;
+				try {
+					is = new FileInputStream(f);
+					int length = (int) (f.length() / 3);
+					int[] colors = new int[length];
+					for (int i = 0; i < length; ++i){
+						int color = 0;
+						for (int j = 0; j < 3; ++j){
+							color <<= 8;
+							color |= SpriteIO.readInteger(is, 1) * 255 / 63;
+						}
+						colors[i] = color;
+					}
+					Palette pal = new Palette(colors);
+					pal.saveAsFile(f.getName() + "!.pal", null);//TODO
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			
 		}
 	}
 	
