@@ -568,17 +568,14 @@ public class FrameFilter {
 	}
 	
 	public void playerColorToNormal(int playerColorId){
-		int[] mapping = Palette.getMappingArray(
+		final int[] mapping = Palette.getMappingArray(
 				Palette.getPlayerPalette(frame.getPlayerColorMode(), playerColorId), 
 				Palette.getPalette(frame.getPalette()));
-		for (int i = 0; i < frame.getHeight(Sprite.DATA_IMAGE); ++i){
-			for (int j = 0; j < frame.getWidth(Sprite.DATA_IMAGE); ++j){
-				int pixel = frame.getPixel(Sprite.DATA_IMAGE, j, i);
-				if (pixel >= Sprite.PIXEL_PLAYER_START){
-					frame.setPixel(Sprite.DATA_IMAGE, j, i,
-							mapping[pixel - Sprite.PIXEL_PLAYER_START]);
-				}
-			}
+		
+		for (Sprite.PixelPointer pointer : frame.getPixels(Sprite.DATA_IMAGE)){
+			int pixel = pointer.get();
+			if (pixel >= Sprite.PIXEL_PLAYER_START)
+				pointer.set(mapping[pixel - Sprite.PIXEL_PLAYER_START]);
 		}
 	}
 	
