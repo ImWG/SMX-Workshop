@@ -2,11 +2,12 @@ package com.imwg.smxworkshop.sprite;
 
 import java.awt.Color;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,6 +25,7 @@ public class Palette {
 	private static Map<String, int[]> mappings = new HashMap<String, int[]>();
 	private static Palette[] customPalettes;
 	private static String[] customPaletteNames;
+	private static Palette trueColorPalette = new TrueColorPalette();
 	
 	private static final int CUSTOM_PALETTE_LIMIT = 1024;
 	private static final int PLAYER_PALETTE_START = 55;
@@ -43,36 +45,7 @@ public class Palette {
 			is.close();
 			
 		}else{ // Text
-			BufferedReader br = new BufferedReader(new FileReader(filename));
-			br.readLine(); // Header
-			br.readLine(); // Version
-			
-			int count = Integer.parseInt(br.readLine());
-			
-			int alpha = 0xff000000;
-			if (name1.endsWith(".PALX")){ // With one alpha value
-				alpha = Integer.parseInt(br.readLine().substring(7)) << 24;
-			}
-			
-			rgbs = new int[count];
-			for (int i=0; i<count;){
-				String line = br.readLine();
-				if (line == null)
-					break;
-				
-				line.replaceFirst("#.+$", "");
-				String[] figures = line.split(" ");
-				if (figures.length >= 3){
-					int rgb = Integer.parseInt(figures[0]);
-					for (int j=1; j<3; ++j){
-						rgb = rgb << 8 | Integer.parseInt(figures[j]);
-					}
-					rgbs[i] = rgb | alpha;
-					++i;
-				}
-			}
-			
-			br.close();
+			loadFromFile(filename);
 		}
 	}
 	
@@ -103,7 +76,7 @@ public class Palette {
 		rgbs[index] = rgb;
 	}
 	public void setColor(int index, int red, int green, int blue){
-		rgbs[index] = color(red, green, blue);
+		setColor(index, color(red, green, blue));
 	}
 
 	public int mapping(int red, int green, int blue, boolean rgbmode){
@@ -164,6 +137,32 @@ public class Palette {
 			}
 			cacheMode = cached;
 		}
+	}
+	
+	/**
+	 * Save as a palette file.
+	 * @param fileName Name of file to save.
+	 * @param type File type.
+	 * @return Succeed or not.
+	 */
+	public boolean saveAsFile(String fileName, String type){
+		try {
+			BufferedWriter bw = new BufferedWriter(new FileWriter(fileName));
+			bw.write("JASC-PAL\r\n");
+			bw.write("0100\r\n");
+			bw.write(Integer.toString(this.rgbs.length) + "\r\n");
+			for (int i = 0; i < this.rgbs.length; ++i){
+				int color = this.rgbs[i];
+				bw.write(String.format("%d %d %d\r\n",
+						(color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff));
+			}
+			bw.flush();
+			bw.close();
+			return true;
+		} catch (IOException e) {
+			e.printStackTrace();
+			return false;
+		} 
 	}
 	
 	
@@ -308,7 +307,9 @@ public class Palette {
 	}
 	
 	public static Palette getPalette(int index){
-		if (index >= 0)
+		if (index == -1)
+			return trueColorPalette;
+		else if (index >= 0)
 			if (index < ORIGINAL_PALETTE_COUNT)
 				return palettes[index];
 			else if ((index -= ORIGINAL_PALETTE_COUNT) < customPalettes.length)
@@ -316,7 +317,9 @@ public class Palette {
 		return null;
 	}
 	public static String getPaletteName(int index){
-		if (index >= 0)
+		if (index == -1)
+			return "True Color Palette";
+		else if (index >= 0)
 			if (index < ORIGINAL_PALETTE_COUNT)
 				return paletteNames[index];
 			else if ((index -= ORIGINAL_PALETTE_COUNT) < customPalettes.length)
@@ -338,25 +341,79 @@ public class Palette {
 		}
 	}
 	
-	public static Palette trueColorPalette(){
-		return new Palette(){
-			@Override
-			public int getColorCount(){
-				return 0x1000000;
-			}
-			@Override
-			public int getColor(int index){
-				return index;
-			}
-			@Override
-			public int mapping(int red, int green, int blue, boolean rgbmode){
-				return red << 16 | green << 8 | blue;
-			}
-			@Override
-			public void setCacheMode(boolean cached){
+	public void loadFromFile(String fileName) throws IOException{
+		BufferedReader br = new BufferedReader(new FileReader(fileName));
+		br.readLine(); // Header
+		br.readLine(); // Version
+		
+		int count = Integer.parseInt(br.readLine());
+		
+		int alpha = 0xff000000;
+		boolean includeAlpha = false;
+		String firstLine = br.readLine();
+		//if (name1.endsWith(".PALX")){
+		if (firstLine.startsWith("$ALPHA")){ // With one alpha value
+			alpha = Integer.parseInt(firstLine.substring(7)) << 24;
+			includeAlpha = true;
+		}
+		
+		rgbs = new int[count];
+		for (int i=0; i<count; ++i){
+			String line = (i == 0 && !includeAlpha) ?
+				firstLine : br.readLine();
 				
+			if (line == null)
+				break;
+			
+			line.replaceFirst("#.+$", "");
+			String[] figures = line.split(" ");
+			if (figures.length >= 3){
+				int rgb = Integer.parseInt(figures[0]);
+				for (int j=1; j<3; ++j){
+					rgb = rgb << 8 | Integer.parseInt(figures[j]);
+				}
+				rgbs[i] = rgb | alpha;
 			}
-		};
+		}
+		
+		br.close();
+	}
+	
+	
+	static private class TrueColorPalette extends Palette{
+		
+		static private int[] cache = new int[0x1000000];
+		static {
+			for (int i = 0; i < 0x1000000; ++i)
+				cache[i] = i;
+		}
+		
+		public TrueColorPalette(){
+		}
+				
+		@Override
+		public int getColorCount(){
+			return 0x1000000;
+		}
+		
+		@Override
+		public int getColor(int index){
+			return index;
+		}
+		
+		@Override
+		public void setColor(int index, int rgb){
+		}
+		
+		@Override
+		public int mapping(int red, int green, int blue, boolean rgbmode){
+			return red << 16 | green << 8 | blue;
+		}
+		
+		@Override
+		public void setCacheMode(boolean cached){
+		}
 	}
 	
 }
+

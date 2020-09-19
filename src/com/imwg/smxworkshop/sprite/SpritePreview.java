@@ -65,11 +65,11 @@ public class SpritePreview {
 								int pixel = frame.getPixel(Sprite.DATA_IMAGE, j, i);
 								if (pixel != Sprite.PIXEL_NULL){
 									if (pixel >= Sprite.PIXEL_PLAYER_START){
-										if (pixel < ppal.rgbs.length + Sprite.PIXEL_PLAYER_START)
-											im.setRGB(j, i, 0xff000000 | ppal.rgbs[pixel - Sprite.PIXEL_PLAYER_START]);
+										if (pixel < ppal.getColorCount()+ Sprite.PIXEL_PLAYER_START)
+											im.setRGB(j, i, 0xff000000 | ppal.getColor(pixel - Sprite.PIXEL_PLAYER_START));
 									}else{
-										if (pixel < pal.rgbs.length)
-											im.setRGB(j, i, pal.rgbs[pixel]);
+										if (pixel < pal.getColorCount())
+											im.setRGB(j, i, pal.getColor(pixel));
 									}
 								}
 							}

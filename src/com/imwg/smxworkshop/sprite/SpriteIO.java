@@ -1390,8 +1390,7 @@ final public class SpriteIO {
 			smpSize = smpSize + 63 & 0xffffffc0; // Ceil by 64
 		}
 	}
-	
-	
+
 	static public boolean saveSLPSprite(Sprite sprite, String fname){
 		int count = sprite.getFrameCount();
 		CompiledSLPFrame[] compiledFrames = new CompiledSLPFrame[count];
@@ -1751,8 +1750,8 @@ final public class SpriteIO {
 								}else{
 									if (ppal != null){
 										int pixel1 = pal.mapping(pixel, rgbMode), pixel2 = ppal.mapping(pixel, rgbMode);
-										if (Palette.distance(pixel, ppal.rgbs[pixel2], rgbMode) <=
-												Palette.distance(pixel, pal.rgbs[pixel1], rgbMode) + playerPaletteTolerance)
+										if (Palette.distance(pixel, ppal.getColor(pixel2), rgbMode) <=
+												Palette.distance(pixel, pal.getColor(pixel1), rgbMode) + playerPaletteTolerance)
 											frame.setPixel(Sprite.DATA_IMAGE, x, y, pixel2 + Sprite.PIXEL_PLAYER_START);
 										else
 											frame.setPixel(Sprite.DATA_IMAGE, x, y, pixel1);
