@@ -144,7 +144,8 @@ public class MainMenu extends MenuBar{
 					
 				case "root.File.Save":
 					if (mainFrame.currentFile != null){
-						mainFrame.getModel().saveSprite(mainFrame.getSprite(), new File(mainFrame.currentFile));
+						mainFrame.getModel().saveSprite(mainFrame.getSprite(), 
+								new File(mainFrame.currentFile), MainFrame.currentFileFormat);
 						mainFrame.addRecentFile(mainFrame.currentFile);
 						return;
 					}
@@ -152,7 +153,7 @@ public class MainMenu extends MenuBar{
 				case "root.File.SaveAs":
 					file = mainFrame.popupChooseSpriteFile(JFileChooser.SAVE_DIALOG);
 					if (file != null){
-						mainFrame.getModel().saveSprite(mainFrame.getSprite(), file);
+						mainFrame.getModel().saveSprite(mainFrame.getSprite(), file, MainFrame.currentFileFormat);
 						MainFrame.currentSpritePath = file.getAbsolutePath();
 						mainFrame.addRecentFile(file.getAbsolutePath());
 					}

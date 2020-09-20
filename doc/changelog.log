@@ -4,10 +4,13 @@ Change log
 
 Beta 1.06
 - Fixed one bug that only extension name of all capital letters can save as SLP files.
+- Fixed one bug that filters can't work on SLP mode.
 - Fixed bugs of not keeping image import/export directory.
+- Saved format determined by selected format, instead of expanision name.
 - Better distinguishing main image and shadow.
 - Added editing sprite's memo.
 - You can export selected frames only now.
+- Better code for filter functions.
 
 Beta 1.05
 - Recent files are listed now.

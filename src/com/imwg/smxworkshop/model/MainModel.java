@@ -53,10 +53,13 @@ public class MainModel {
 	}
 
 	
-	public int saveSprite(Sprite sprite, File file){
+	public int saveSprite(Sprite sprite, File file, String format){
 		String name = file.getName(); 
-		String[] ends = name.split("\\.");
-		switch (ends[ends.length-1].toUpperCase()){
+		if (format.equals("")){
+			String[] ends = name.split("\\.");
+			format = ends[ends.length-1].toUpperCase();
+		}
+		switch (format){
 		case "SLP":
 			SpriteIO.saveSLPSprite(sprite, file.getAbsolutePath());
 			break;
