@@ -32,7 +32,10 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.swing.Icon;
 import javax.swing.JFileChooser;
@@ -651,7 +654,7 @@ public class MainFrame extends Frame {
 		
 	}
 	
-	
+	static public String currentFileFormat = "SMX"; 
 	public File popupChooseSpriteFile(int type){
 		final JFileChooser fd = new JFileChooser();
 		fd.setDialogType(type);
@@ -660,12 +663,18 @@ public class MainFrame extends Frame {
 		    	return fd.getFileSystemView().getSystemIcon(f);
 		    }
 		});
-		FileFilter ff = new FileNameExtensionFilter("Supported Files", "SMX", "SLP","SMP");
+		
+		FileNameExtensionFilter ff = new FileNameExtensionFilter("Supported Files", "SMX", "SLP","SMP");
+		Map<FileFilter, String> formats = new LinkedHashMap<FileFilter, String>(); // Ordered
+		formats.put(ff, "");
+		formats.put(new FileNameExtensionFilter("SLP File", "SLP"), "SLP");
+		formats.put(new FileNameExtensionFilter("SMP File", "SMP"), "SMP");
+		formats.put(new FileNameExtensionFilter("SMX File", "SMX"), "SMX");
+		
+		for (Entry<FileFilter, String> filter : formats.entrySet()){
+			fd.setFileFilter(filter.getKey());
+		} 
 		fd.setFileFilter(ff);
-		fd.setFileFilter(new FileNameExtensionFilter("SLP File", "SLP"));
-		fd.setFileFilter(new FileNameExtensionFilter("SMP File", "SMP"));
-		fd.setFileFilter(new FileNameExtensionFilter("SMX File", "SMX"));
-		fd.setFileFilter(ff); // Default selection 
 		fd.setCurrentDirectory(new File(MainFrame.currentSpritePath));
 		fd.setFileSelectionMode(JFileChooser.FILES_ONLY);
 		fd.setMultiSelectionEnabled(false);
@@ -675,6 +684,7 @@ public class MainFrame extends Frame {
 				File file = fd.getSelectedFile();
 				if (type == JFileChooser.SAVE_DIALOG){
 					String filePath = file.getAbsolutePath();
+					currentFileFormat = formats.get(fd.getFileFilter());
 					if (!file.getName().contains(".")){ // Auto complete
 						if (fd.getFileFilter() instanceof FileNameExtensionFilter)
 							filePath += "." + ((FileNameExtensionFilter)fd.getFileFilter()).getExtensions()[0];
