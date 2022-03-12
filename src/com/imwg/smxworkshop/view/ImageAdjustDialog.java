@@ -5,6 +5,8 @@ import java.awt.Checkbox;
 import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.Scrollbar;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.AdjustmentEvent;
 import java.awt.event.AdjustmentListener;
 import java.awt.event.ItemEvent;
@@ -65,14 +67,8 @@ public class ImageAdjustDialog extends PropDialog {
 		
 		this.brightnessMode = brightnessMode;
 		if (brightnessMode){
-			add(brightBar = new Scrollbar(), "Scrollbar.bright");
-			brightBar.setOrientation(Scrollbar.HORIZONTAL);
-			brightBar.setMinimum(-255);
-			brightBar.setMaximum(255);
-			add(contrastBar = new Scrollbar(), "Scrollbar.contrast");
-			contrastBar.setOrientation(Scrollbar.HORIZONTAL);
-			contrastBar.setMinimum(-255);
-			contrastBar.setMaximum(255);
+			brightBar = addLinkedBarAndField("Scrollbar.bright", "TextField.bright");
+			contrastBar = addLinkedBarAndField("Scrollbar.contrast", "TextField.contrast");
 			brightBar.addAdjustmentListener(listener);
 			contrastBar.addAdjustmentListener(listener);
 			
@@ -81,21 +77,13 @@ public class ImageAdjustDialog extends PropDialog {
 			
 		}else{
 			setTitle(ViewConfig.getString("ImageAdjustDialog.alter"));
-			add(hueBar = new Scrollbar(), "Scrollbar.hue");
-			hueBar.setOrientation(Scrollbar.HORIZONTAL);
-			hueBar.setMinimum(-255);
-			hueBar.setMaximum(255);
-			add(saturateBar = new Scrollbar(), "Scrollbar.saturate");
-			saturateBar.setOrientation(Scrollbar.HORIZONTAL);
-			saturateBar.setMinimum(-255);
-			saturateBar.setMaximum(255);
-			add(valueBar = new Scrollbar(), "Scrollbar.value");
-			valueBar.setOrientation(Scrollbar.HORIZONTAL);
-			valueBar.setMinimum(-255);
-			valueBar.setMaximum(255);
+			hueBar = addLinkedBarAndField("Scrollbar.hue", "TextField.hue");
+			saturateBar = addLinkedBarAndField("Scrollbar.saturate", "TextField.saturate");
+			valueBar = addLinkedBarAndField("Scrollbar.value", "TextField.value");
 			hueBar.addAdjustmentListener(listener);
 			saturateBar.addAdjustmentListener(listener);
 			valueBar.addAdjustmentListener(listener);
+			
 			tintCheckbox = addCheckbox("Checkbox.tint");
 			tintCheckbox.addItemListener(itemListener);
 			
@@ -181,6 +169,37 @@ public class ImageAdjustDialog extends PropDialog {
 		}
 		normal = normalCheckbox.getState();
 		player = playerCheckbox.getState();
+	}
+	
+	private Scrollbar addLinkedBarAndField(String barName, String fieldName){
+		final Scrollbar bar = new Scrollbar(); 
+		add(bar, barName);
+		bar.setOrientation(Scrollbar.HORIZONTAL);
+		bar.setMinimum(-255);
+		bar.setMaximum(255);
+		
+		final NumberField field = new NumberField(true);
+		add(field, fieldName);
+		field.setRange(-255, 255);
+		
+		field.addActionListener(new ActionListener(){
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				System.out.println(".");
+				bar.setValue(field.getInteger());
+				for (AdjustmentListener listener: bar.getAdjustmentListeners()){
+					listener.adjustmentValueChanged(null);
+				}
+			}
+		});
+		bar.addAdjustmentListener(new AdjustmentListener(){
+			@Override
+			public void adjustmentValueChanged(AdjustmentEvent e) {
+				field.setText(bar.getValue());
+			}
+		});
+		
+		return bar;
 	}
 
 	
