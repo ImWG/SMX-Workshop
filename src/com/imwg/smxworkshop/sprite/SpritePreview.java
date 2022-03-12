@@ -1,6 +1,7 @@
 package com.imwg.smxworkshop.sprite;
 
 import java.awt.image.BufferedImage;
+import java.lang.ref.WeakReference;
 
 import com.imwg.smxworkshop.sprite.Palette;
 import com.imwg.smxworkshop.sprite.Sprite;
@@ -9,8 +10,7 @@ import com.imwg.smxworkshop.view.MainFrame;
 public class SpritePreview {
 	Sprite sprite;
 	public int playerColorId = 0;
-	private BufferedImage[] frameImages;
-	
+	private WeakReference<BufferedImage>[] frameImages; // Due to large memory occupy
 	volatile private boolean[] frameStatus = new boolean[0]; // Async
 	private Thread currentLoadingThread = null;
 	
@@ -24,7 +24,14 @@ public class SpritePreview {
 	}
 	
 	public BufferedImage getFrameImage(int index, int type){
-		return frameImages[index*4 + type];
+		WeakReference<BufferedImage> ref = frameImages[index*4 + type]; 
+		if (ref != null){
+			if (ref.get() != null){
+				return ref.get();
+			}
+		}
+		this.createImage(index);
+		return frameImages[index*4 + type].get();
 	}
 	
 	public boolean getFrameStatus(int index){
@@ -33,12 +40,93 @@ public class SpritePreview {
 		return frameStatus[index];
 	}
 	
+	public void createImage(int index){
+		Sprite.Frame frame = sprite.getFrame(index);
+		Palette pal = Palette.getPalette(frame.getPalette());
+		Palette ppal = Palette.getPlayerPalette(sprite.playerMode, playerColorId);
+
+		// Draw Normal
+		if (frame.getWidth(Sprite.DATA_IMAGE) > 0 && frame.getHeight(Sprite.DATA_IMAGE) > 0){
+			
+			BufferedImage im = new BufferedImage(frame.getWidth(Sprite.DATA_IMAGE),
+					frame.getHeight(Sprite.DATA_IMAGE), BufferedImage.TYPE_INT_ARGB);
+			for (int i=0; i<frame.getHeight(Sprite.DATA_IMAGE); ++i){
+				for (int j=0; j<frame.getWidth(Sprite.DATA_IMAGE); ++j){
+					int pixel = frame.getPixel(Sprite.DATA_IMAGE, j, i);
+					if (pixel != Sprite.PIXEL_NULL){
+						if (pixel >= Sprite.PIXEL_PLAYER_START){
+							if (pixel < ppal.getColorCount()+ Sprite.PIXEL_PLAYER_START)
+								im.setRGB(j, i, 0xff000000 | ppal.getColor(pixel - Sprite.PIXEL_PLAYER_START));
+						}else{
+							if (pixel < pal.getColorCount())
+								im.setRGB(j, i, pal.getColor(pixel));
+						}
+					}
+				}
+			}
+			frameImages[index*4+Sprite.DATA_IMAGE] = new WeakReference<BufferedImage>(im);
+		}else{
+			frameImages[index*4+Sprite.DATA_IMAGE] = new WeakReference<BufferedImage>(null);
+		}
+	
+		// Draw Shadow
+		if (frame.getWidth(Sprite.DATA_SHADOW) > 0 && frame.getHeight(Sprite.DATA_SHADOW) > 0){
+			BufferedImage im = new BufferedImage(frame.getWidth(Sprite.DATA_SHADOW),
+					frame.getHeight(Sprite.DATA_SHADOW), BufferedImage.TYPE_INT_ARGB);
+			for (int i=0; i<frame.getHeight(Sprite.DATA_SHADOW); ++i){
+				for (int j=0; j<frame.getWidth(Sprite.DATA_SHADOW); ++j){
+					int pixel = frame.getPixel(Sprite.DATA_SHADOW, j, i);
+					if (pixel != Sprite.PIXEL_NULL)
+						im.setRGB(j, i, pixel << 24);
+				}
+			}
+			frameImages[index*4+Sprite.DATA_SHADOW] = new WeakReference<BufferedImage>(im);
+		}else{
+			frameImages[index*4+Sprite.DATA_SHADOW] = new WeakReference<BufferedImage>(null);
+		}
+		
+		// Draw Outline
+		if (frame.getWidth(Sprite.DATA_OUTLINE) > 0 && frame.getHeight(Sprite.DATA_OUTLINE) > 0){
+			BufferedImage im = new BufferedImage(frame.getWidth(Sprite.DATA_OUTLINE),
+					frame.getHeight(Sprite.DATA_OUTLINE), BufferedImage.TYPE_INT_ARGB);
+			for (int i=0; i<frame.getHeight(Sprite.DATA_OUTLINE); ++i){
+				for (int j=0; j<frame.getWidth(Sprite.DATA_OUTLINE); ++j){
+					int pixel = frame.getPixel(Sprite.DATA_OUTLINE, j, i);
+					if (pixel != Sprite.PIXEL_NULL){
+						im.setRGB(j, i, 0xffffffff);
+					}
+				}
+			}
+			frameImages[index*4+Sprite.DATA_OUTLINE] = new WeakReference<BufferedImage>(im);
+		}else{
+			frameImages[index*4+Sprite.DATA_OUTLINE] = new WeakReference<BufferedImage>(null);
+		}
+		
+		// Draw Smudge
+		if (frame.getWidth(Sprite.DATA_SMUDGE) > 0 && frame.getHeight(Sprite.DATA_SMUDGE) > 0){
+			BufferedImage im = new BufferedImage(frame.getWidth(Sprite.DATA_SMUDGE),
+					frame.getHeight(Sprite.DATA_SMUDGE), BufferedImage.TYPE_INT_ARGB);
+			for (int i=0; i<frame.getHeight(Sprite.DATA_SMUDGE); ++i){
+				for (int j=0; j<frame.getWidth(Sprite.DATA_SMUDGE); ++j){
+					int pixel = frame.getPixel(Sprite.DATA_SMUDGE, j, i);
+					if (pixel != Sprite.PIXEL_NULL){
+						pixel = (pixel >> 2) & 0xff;
+						im.setRGB(j, i, pixel << 24);
+					}
+				}
+			}
+			frameImages[index*4+Sprite.DATA_SMUDGE] = new WeakReference<BufferedImage>(im);
+		}else{
+			frameImages[index*4+Sprite.DATA_SMUDGE] = new WeakReference<BufferedImage>(null);
+		}
+	}
+	
 	public void refresh(){
 		if (sprite == null)
 			return;
 		
 		int count = sprite.getFrameCount();
-		frameImages = new BufferedImage[count*4];
+		frameImages = new WeakReference[count*4];
 		frameStatus = new boolean[count];
 		
 		if (currentLoadingThread != null)
@@ -48,91 +136,10 @@ public class SpritePreview {
 		currentLoadingThread = new Thread(new Runnable(){
 			
 			public void run(){
-				
-				Palette ppal = Palette.getPlayerPalette(sprite.playerMode, playerColorId);
-				
 				for (int index=0; index<sprite.getFrameCount(); ++index){
-					Sprite.Frame frame = sprite.getFrame(index);
-					Palette pal = Palette.getPalette(frame.getPalette());
-
-					// Draw Normal
-					if (frame.getWidth(Sprite.DATA_IMAGE) > 0 && frame.getHeight(Sprite.DATA_IMAGE) > 0){
-						
-						BufferedImage im = new BufferedImage(frame.getWidth(Sprite.DATA_IMAGE),
-								frame.getHeight(Sprite.DATA_IMAGE), BufferedImage.TYPE_INT_ARGB);
-						for (int i=0; i<frame.getHeight(Sprite.DATA_IMAGE); ++i){
-							for (int j=0; j<frame.getWidth(Sprite.DATA_IMAGE); ++j){
-								int pixel = frame.getPixel(Sprite.DATA_IMAGE, j, i);
-								if (pixel != Sprite.PIXEL_NULL){
-									if (pixel >= Sprite.PIXEL_PLAYER_START){
-										if (pixel < ppal.getColorCount()+ Sprite.PIXEL_PLAYER_START)
-											im.setRGB(j, i, 0xff000000 | ppal.getColor(pixel - Sprite.PIXEL_PLAYER_START));
-									}else{
-										if (pixel < pal.getColorCount())
-											im.setRGB(j, i, pal.getColor(pixel));
-									}
-								}
-							}
-						}
-						frameImages[index*4+Sprite.DATA_IMAGE] = im;
-					}else{
-						frameImages[index*4+Sprite.DATA_IMAGE] = null;
-					}
-				
-					// Draw Shadow
-					if (frame.getWidth(Sprite.DATA_SHADOW) > 0 && frame.getHeight(Sprite.DATA_SHADOW) > 0){
-						BufferedImage im = new BufferedImage(frame.getWidth(Sprite.DATA_SHADOW),
-								frame.getHeight(Sprite.DATA_SHADOW), BufferedImage.TYPE_INT_ARGB);
-						for (int i=0; i<frame.getHeight(Sprite.DATA_SHADOW); ++i){
-							for (int j=0; j<frame.getWidth(Sprite.DATA_SHADOW); ++j){
-								int pixel = frame.getPixel(Sprite.DATA_SHADOW, j, i);
-								if (pixel != Sprite.PIXEL_NULL)
-									im.setRGB(j, i, pixel << 24);
-							}
-						}
-						frameImages[index*4+Sprite.DATA_SHADOW] = im;
-					}else{
-						frameImages[index*4+Sprite.DATA_SHADOW] = null;
-					}
-					
-					// Draw Outline
-					if (frame.getWidth(Sprite.DATA_OUTLINE) > 0 && frame.getHeight(Sprite.DATA_OUTLINE) > 0){
-						BufferedImage im = new BufferedImage(frame.getWidth(Sprite.DATA_OUTLINE),
-								frame.getHeight(Sprite.DATA_OUTLINE), BufferedImage.TYPE_INT_ARGB);
-						for (int i=0; i<frame.getHeight(Sprite.DATA_OUTLINE); ++i){
-							for (int j=0; j<frame.getWidth(Sprite.DATA_OUTLINE); ++j){
-								int pixel = frame.getPixel(Sprite.DATA_OUTLINE, j, i);
-								if (pixel != Sprite.PIXEL_NULL){
-									im.setRGB(j, i, 0xffffffff);
-								}
-							}
-						}
-						frameImages[index*4+Sprite.DATA_OUTLINE] = im;
-					}else{
-						frameImages[index*4+Sprite.DATA_OUTLINE] = null;
-					}
-					
-					// Draw Smudge
-					if (frame.getWidth(Sprite.DATA_SMUDGE) > 0 && frame.getHeight(Sprite.DATA_SMUDGE) > 0){
-						BufferedImage im = new BufferedImage(frame.getWidth(Sprite.DATA_SMUDGE),
-								frame.getHeight(Sprite.DATA_SMUDGE), BufferedImage.TYPE_INT_ARGB);
-						for (int i=0; i<frame.getHeight(Sprite.DATA_SMUDGE); ++i){
-							for (int j=0; j<frame.getWidth(Sprite.DATA_SMUDGE); ++j){
-								int pixel = frame.getPixel(Sprite.DATA_SMUDGE, j, i);
-								if (pixel != Sprite.PIXEL_NULL){
-									pixel = (pixel >> 2) & 0xff;
-									im.setRGB(j, i, pixel << 24);
-								}
-							}
-						}
-						frameImages[index*4+Sprite.DATA_SMUDGE] = im;
-					}else{
-						frameImages[index*4+Sprite.DATA_SMUDGE] = null;
-					}
-					
 					MainFrame.setProcessString(String.format("Painting %d/%d ...", index, sprite.getFrameCount()));
+					createImage(index);
 					frameStatus[index] = true;
-					
 				}
 			}
 			
