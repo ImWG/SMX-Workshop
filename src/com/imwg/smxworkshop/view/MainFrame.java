@@ -607,8 +607,7 @@ public class MainFrame extends Frame {
 								}
 								mainFrame.loadSprite(sprite);
 								mainFrame.closeProcessDialog();
-								MainFrame.currentSpritePath = files[0].getAbsolutePath();
-								mainFrame.addRecentFile(files[0].getAbsolutePath());
+								MainFrame.currentImagePath = files[0].getAbsolutePath();
 							}
 
 						});
@@ -620,7 +619,7 @@ public class MainFrame extends Frame {
 						loadSprite(firstFile);
 						closeProcessDialog();
 						currentSpritePath = fname;
-						
+						mainFrame.addRecentFile(fname);
 		            }
 		            
 	        	} catch (Exception e) {
@@ -654,7 +653,7 @@ public class MainFrame extends Frame {
 		
 	}
 	
-	static public String currentFileFormat = "SMX"; 
+	static public String currentFileFormat = "smx"; 
 	public File popupChooseSpriteFile(int type){
 		final JFileChooser fd = new JFileChooser();
 		fd.setDialogType(type);
@@ -664,12 +663,12 @@ public class MainFrame extends Frame {
 		    }
 		});
 		
-		FileNameExtensionFilter ff = new FileNameExtensionFilter("Supported Files", "SMX", "SLP","SMP");
+		FileNameExtensionFilter ff = new FileNameExtensionFilter("Supported Files", "smx", "slp","smp");
 		Map<FileFilter, String> formats = new LinkedHashMap<FileFilter, String>(); // Ordered
 		formats.put(ff, "");
-		formats.put(new FileNameExtensionFilter("SLP File", "SLP"), "SLP");
-		formats.put(new FileNameExtensionFilter("SMP File", "SMP"), "SMP");
-		formats.put(new FileNameExtensionFilter("SMX File", "SMX"), "SMX");
+		formats.put(new FileNameExtensionFilter("SLP File", "SLP"), "slp");
+		formats.put(new FileNameExtensionFilter("SMP File", "SMP"), "smp");
+		formats.put(new FileNameExtensionFilter("SMX File", "SMX"), "smx");
 		
 		for (Entry<FileFilter, String> filter : formats.entrySet()){
 			fd.setFileFilter(filter.getKey());
@@ -689,7 +688,7 @@ public class MainFrame extends Frame {
 						if (fd.getFileFilter() instanceof FileNameExtensionFilter)
 							filePath += "." + ((FileNameExtensionFilter)fd.getFileFilter()).getExtensions()[0];
 						else // Default
-							filePath += ".SMX";
+							filePath += ".smx";
 						
 						file = new File(filePath);
 					}

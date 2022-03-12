@@ -153,7 +153,7 @@ public class MainMenu extends MenuBar{
 				case "root.File.SaveAs":
 					file = mainFrame.popupChooseSpriteFile(JFileChooser.SAVE_DIALOG);
 					if (file != null){
-						mainFrame.getModel().saveSprite(mainFrame.getSprite(), file, MainFrame.currentFileFormat);
+						mainFrame.getModel().saveSprite(mainFrame.getSprite(), file, "");
 						MainFrame.currentSpritePath = file.getAbsolutePath();
 						mainFrame.addRecentFile(file.getAbsolutePath());
 					}
@@ -565,7 +565,19 @@ public class MainMenu extends MenuBar{
 						}
 					});
 					dialog.setVisible(true);
-					mainFrame.reload();
+				} break;
+				
+				case "root.Tools.InterpFrames": {
+					InterpolateFramesDialog dialog = new InterpolateFramesDialog(mainFrame);
+					dialog.setConfirmedListener(new ActionListener(){
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							model.interpolateAngles(mainFrame.getSprite(), InterpolateFramesDialog.angles,
+									InterpolateFramesDialog.frames, InterpolateFramesDialog.loop);
+							mainFrame.reload();
+						}
+					});
+					dialog.setVisible(true);
 				} break;
 				
 				case "root.Tools.PlayerToNormal": {
@@ -576,6 +588,20 @@ public class MainMenu extends MenuBar{
 						filter.playerColorToNormal(mainFrame.preview.playerColorId);
 					}
 					mainFrame.refreshAll();
+				} break;
+				
+				case "root.Tools.TrimFrames": {
+					TrimAngleFramesDialog dialog = new TrimAngleFramesDialog(mainFrame);
+					dialog.setConfirmedListener(new ActionListener(){
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							model.trimAngleFrames(mainFrame.getSprite(), 
+									TrimAngleFramesDialog.angles, TrimAngleFramesDialog.startFrame,
+									TrimAngleFramesDialog.frames, TrimAngleFramesDialog.removeSelected);
+							mainFrame.reload();
+						}
+					});
+					dialog.setVisible(true);
 				} break;
 					
 				}
@@ -808,7 +834,7 @@ public class MainMenu extends MenuBar{
 			this.changePaletteMenu = (Menu) menuItem;
 		}else if (itemKey.equals("root.Help.Language")){
 			this.languageMenu = (Menu) menuItem;
-		}else if (itemKey.equals("root.Tools.Plugin")){
+		}else if (itemKey.equals("root.Plugin")){
 			Menu parentMenu = ((Menu) menuItem);
 			parentMenu.removeAll();
 			
