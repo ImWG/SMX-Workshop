@@ -32,6 +32,8 @@ final public class ViewConfig {
 			 ExportImagesDialog.class,
 			 ImageAdjustDialog.class,
 			 AdjustAngleDialog.class,
+			 InterpolateFramesDialog.class,
+			 TrimAngleFramesDialog.class,
 			 
 			 MainMenu.class
 		};

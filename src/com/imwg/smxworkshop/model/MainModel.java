@@ -376,4 +376,94 @@ public class MainModel {
 		}
 	}
 	
+	/**
+	 * Interpolate each segments divided by total angles to certain length.
+	 * Will be interpolated with nearest frame.
+	 * @param sprite Sprite to adjust.
+	 * @param angles Full angle count of sprite.
+	 * @param toCount Target frame count per angle.
+	 * @param loop Is frames per angle looped. If looped, each frames shares same
+	 * stride in interpolation. Or the first and the last have only half of others. 
+	 */
+	public void interpolateAngles(Sprite sprite, int angles, 
+			int toCount, boolean loop) {
+		int fromCount = sprite.getFrameCount() / angles;
+		int frameCount = angles * fromCount;
+		if (fromCount > 0 && fromCount != toCount){
+			int totalCount = toCount * angles;
+			int[] indexes = new int[totalCount];
+			double rate;
+			
+			if (loop){
+				rate = (double) fromCount / toCount;
+				for (int i = 0, index = 0; i < angles; ++i){
+					double offset = i * fromCount;
+					if (rate > 1)
+						offset += rate / 2;
+					for (int j = 0; j < toCount; ++j){
+						// Avoid precision problems
+						indexes[index++] = (int) Math.floor(Math.round(offset * 1024)) >> 10;
+						offset += rate;
+					}
+				}
+			}else{
+				rate = (double) (fromCount - 1) / (toCount - 1);
+				for (int i = 0, index = 0; i < angles; ++i){
+					double offset = i * fromCount + .5;
+					for (int j = 0; j < toCount; ++j){
+						// Avoid precision problems
+						indexes[index++] = (int) Math.round(Math.round(offset * 1024)) >> 10;
+						offset += rate;
+					}
+				}
+			}
+			
+			if (rate < 1){ // Increase
+				int pointer = totalCount - 1;
+				for (int i = frameCount - 1; i >= 0; --i){
+					Sprite.Frame frame = sprite.getFrame(i);
+					for (--pointer; pointer >= 0 && indexes[pointer] == i; --pointer){
+						sprite.insertFrame(i, sprite.createFrame(frame));
+					}
+				}
+			}else{ // Reduce
+				int pointer = frameCount;
+				for (int i = totalCount - 1; i >= 0; --i){
+					for (--pointer; pointer >= 0 && indexes[i] < pointer; --pointer){
+						sprite.removeFrame(pointer);
+					}
+				}
+				if (indexes[0] > 0){
+					for (pointer = indexes[0]; pointer > 0; --pointer){
+						sprite.removeFrame(0);
+					}
+				}
+			}
+		}
+	}
+
+	public void trimAngleFrames(Sprite sprite, int angles, int startFrame,
+			int frames, boolean removeSelected) {
+		
+		int framePerAngle = sprite.getFrameCount() / angles;
+		for (int i = angles - 1; i >= 0; --i) {
+			int offset = i * framePerAngle;
+			if (removeSelected) {
+				for (int j = startFrame + frames - 1; j >= startFrame; --j) {
+					sprite.removeFrame(j + offset);
+				}
+			}else {
+				for (int j = framePerAngle - 1; j >= 0; --j) {
+					if (j == startFrame + frames - 1) {
+						if ((j -= frames) < 0) {
+							break;
+						}
+					}
+					sprite.removeFrame(j + offset);
+				}
+			}
+		}
+		
+	}
+	
 }

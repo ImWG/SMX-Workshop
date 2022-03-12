@@ -205,6 +205,7 @@ public class CNCPlugin extends Plugin{
 		SMXSprite sprite = new SMXSprite();
 		sprite.setPlayerMode(playerMode);
 		long[] offsets = new long[frameCount];
+		byte[] mode = new byte[frameCount]; 
 		for (int index=0; index<frameCount; ++index){
 			int left = SpriteIO.readInteger(fis, 2);
 			int top = SpriteIO.readInteger(fis, 2);
@@ -212,7 +213,8 @@ public class CNCPlugin extends Plugin{
 			int height = SpriteIO.readInteger(fis, 2);
 			int anchorX = fullWidth / 2 - left;
 			int anchorY = fullHeight / 2 - top;
-			fis.skip(12);
+			mode[index] = (byte) SpriteIO.readInteger(fis, 2);
+			fis.skip(10);
 			
 			offsets[index] = SpriteIO.readInteger(fis, 4);
 			Sprite.Frame frame = sprite.createFrame();
@@ -229,25 +231,37 @@ public class CNCPlugin extends Plugin{
 			
 			Sprite.Frame frame = sprite.getFrame(index);
 			int height = frame.getHeight(Sprite.DATA_IMAGE);
-			for (int y=0; y<height; ++y){
-				int len = SpriteIO.readInteger(fis, 2) - 2;
-				int x = 0;
-				for (int i=0; i<len; ++i){
-					int c = fis.read(); 
-					if (c == 0){
-						x += fis.read(); ++i;
-					}else{
-						if (playerMode != Sprite.PLAYER_PALETTE_NONE){
-							if (c >= 16 && c < 32){
-								frame.setPixel(Sprite.DATA_IMAGE, x++, y, 
-										playerMap[c - 16] + Sprite.PIXEL_PLAYER_START);
-								continue;
-							}
+			
+			if (mode[index] == 3){ // Depressed
+				for (int y=0; y<height; ++y){
+					int len = SpriteIO.readInteger(fis, 2) - 2;
+					int x = 0;
+					for (int i=0; i<len; ++i){
+						int c = fis.read(); 
+						if (c == 0){
+							x += fis.read(); ++i;
+						}else{
+							setPixel(frame, x++, y, c, playerMap);
 						}
-						frame.setPixel(Sprite.DATA_IMAGE, x++, y, c);
+					}
+					current += len + 2;
+				}
+				
+			}else if (mode[index] == 1){ // Literal
+				int width = frame.getWidth(Sprite.DATA_IMAGE);
+				for (int y=0; y<height; ++y){
+					int x = 0;
+					for (int i=0; i<width; ++i){
+						int c = fis.read(); 
+						if (c == 0){
+							++x;
+						}else{
+							setPixel(frame, x++, y, c, playerMap);
+						}
 					}
 				}
-				current += len + 2;
+				current += width * height;
+
 			}
 		}
 		
@@ -258,6 +272,18 @@ public class CNCPlugin extends Plugin{
 		}
 		
 		return sprite;
+	}
+	
+	static private void setPixel(Sprite.Frame frame, int x, int y, int pixel,
+			int[] playerMap){
+		if (playerMap != null){
+			if (pixel >= 16 && pixel < 32){
+				frame.setPixel(Sprite.DATA_IMAGE, x, y, 
+						playerMap[pixel - 16] + Sprite.PIXEL_PLAYER_START);
+			}
+			return;
+		}
+		frame.setPixel(Sprite.DATA_IMAGE, x, y, pixel);
 	}
 	
 	static private boolean saveSHP(Sprite sprite, File file, boolean shadow, boolean playerMode){ // TODO
