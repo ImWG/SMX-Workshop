@@ -1053,7 +1053,7 @@ final public class SpriteIO {
 			// Normal Image
 			width = frame.getWidth(Sprite.DATA_IMAGE);
 			height = frame.getHeight(Sprite.DATA_IMAGE);
-			byte[] mapImage = new byte[width * height];
+			byte[] mapImage = new byte[(width + 1) * height];
 			if (height > 0){
 				smpSize += 32 + height * 8;
 			
@@ -1706,7 +1706,7 @@ final public class SpriteIO {
 							} else {
 								pixel = pixel >> 24 & 0xff;
 							}
-							frame.setPixel(Sprite.DATA_SHADOW, x, y, pixel);
+							frame.setPixel(Sprite.DATA_SHADOW, x, y, Math.min(pixel, Sprite.MAX_SHADOW_DEPTH));
 						}
 					}				
 					
@@ -1724,12 +1724,12 @@ final public class SpriteIO {
 								if (alpha == 255){ // As Player Color
 									frame.setPixel(Sprite.DATA_IMAGE, x, y, 
 											ppal.mapping(pixel, rgbMode) + Sprite.PIXEL_PLAYER_START);
-								}else if (alpha >= 128){ // As Normal
+								}else if (alpha >= 192){ // As Normal
 									frame.setPixel(Sprite.DATA_IMAGE, x, y, pal.mapping(pixel, rgbMode));
 								}else{ // As shadow
 									int brightness = getBrightness(pixel);
 									if (alpha < 128 && alpha * brightness < 32258){
-										frame.setPixel(Sprite.DATA_SHADOW, x, y, alpha);
+										frame.setPixel(Sprite.DATA_SHADOW, x, y, Math.min(alpha, Sprite.MAX_SHADOW_DEPTH));
 									}
 								}
 							}
@@ -1745,7 +1745,7 @@ final public class SpriteIO {
 								
 								int alpha = pixel >> 24 & 0xff;
 								int brightness = getBrightness(pixel);
-								if (alpha < 128 && alpha * brightness < 32258){
+								if (alpha < 192 && alpha * brightness < 48387){
 									frame.setPixel(Sprite.DATA_SHADOW, x, y, alpha);
 								}else{
 									if (ppal != null){
@@ -1956,6 +1956,8 @@ final public class SpriteIO {
 					frameHeight = mu + md;
 					break;
 				case ANCHOR_MODE_CENTER: // Aligned, center
+					frameWidth = 0;
+					frameHeight = 0;
 					for (int i = 0; i < limit; ++i){
 						Sprite.Frame frame = sprite.getFrame(frameIds[i + offset]);
 						int anchorX = frame.getAnchorX(), anchorY = frame.getAnchorY();
@@ -1987,7 +1989,8 @@ final public class SpriteIO {
 			int fy0 = frameHeight * ((index - offset) / columns);
 			int x0 = fx0 + padding, y0 = fy0 + padding;
 			
-			Sprite.Frame frame = sprite.getFrame(frameIds[index]);
+			int realIndex = frameIds[index];
+			Sprite.Frame frame = sprite.getFrame(realIndex);
 			
 			if (anchorMode == ANCHOR_MODE_TIGHT){
 				x0 += frame.getAnchorX(); y0 += frame.getAnchorY();
@@ -2000,7 +2003,7 @@ final public class SpriteIO {
 			}
 			
 			// Wait for Notification
-			while (!preview.getFrameStatus(frameIds[index]));
+			while (!preview.getFrameStatus(realIndex));
 			
 			// Draw background color
 			if (background){
@@ -2011,7 +2014,7 @@ final public class SpriteIO {
 			
 			// Draw lower Shadow
 			if (imageMode != IMAGE_MODE_SEPARATESHADOW){
-				gr.drawImage(preview.getFrameImage(index, Sprite.DATA_SHADOW), 
+				gr.drawImage(preview.getFrameImage(realIndex, Sprite.DATA_SHADOW), 
 						x0 - frame.getAnchorX(Sprite.DATA_SHADOW),
 						y0 - frame.getAnchorY(Sprite.DATA_SHADOW),
 						null);
@@ -2030,14 +2033,14 @@ final public class SpriteIO {
 					}
 				}
 			
-				gr.drawImage(preview.getFrameImage(index, Sprite.DATA_IMAGE), 
+				gr.drawImage(preview.getFrameImage(realIndex, Sprite.DATA_IMAGE), 
 						x0 - frame.getAnchorX(Sprite.DATA_IMAGE),
 						y0 - frame.getAnchorY(Sprite.DATA_IMAGE),
 						null);
 			
 				x1 = x0 - frame.getAnchorX(Sprite.DATA_IMAGE);
 				y1 = y0 - frame.getAnchorY(Sprite.DATA_IMAGE);
-				BufferedImage frameImage = preview.getFrameImage(index, Sprite.DATA_IMAGE); 
+				BufferedImage frameImage = preview.getFrameImage(realIndex, Sprite.DATA_IMAGE); 
 				for (int y = 0; y < frame.getHeight(Sprite.DATA_IMAGE); ++y){
 					for (int x = 0; x < frame.getWidth(Sprite.DATA_IMAGE); ++x){
 						int pixel = frame.getPixel(Sprite.DATA_IMAGE, x, y); 
@@ -2050,7 +2053,7 @@ final public class SpriteIO {
 				
 			}else if (imageMode != IMAGE_MODE_SHADOWONLY){
 				
-				gr.drawImage(preview.getFrameImage(index, Sprite.DATA_IMAGE), 
+				gr.drawImage(preview.getFrameImage(realIndex, Sprite.DATA_IMAGE), 
 						x0 - frame.getAnchorX(Sprite.DATA_IMAGE),
 						y0 - frame.getAnchorY(Sprite.DATA_IMAGE),
 						null);
@@ -2062,7 +2065,7 @@ final public class SpriteIO {
 				fx0 += frameWidth; x0 += frameWidth;
 				if (background){
 					gr.fillRect(fx0, fy0, frameWidth, frameHeight);
-					gr.drawImage(preview.getFrameImage(index, Sprite.DATA_SHADOW), 
+					gr.drawImage(preview.getFrameImage(realIndex, Sprite.DATA_SHADOW), 
 							x0 - frame.getAnchorX(Sprite.DATA_SHADOW),
 							y0 - frame.getAnchorY(Sprite.DATA_SHADOW),
 							null);
@@ -2071,7 +2074,7 @@ final public class SpriteIO {
 					gr.setPaintMode();
 					gr.setColor(Color.WHITE);
 				}else{
-					gr.drawImage(preview.getFrameImage(index, Sprite.DATA_SHADOW), 
+					gr.drawImage(preview.getFrameImage(realIndex, Sprite.DATA_SHADOW), 
 							x0 - frame.getAnchorX(Sprite.DATA_SHADOW),
 							y0 - frame.getAnchorY(Sprite.DATA_SHADOW),
 							null);
@@ -2086,7 +2089,7 @@ final public class SpriteIO {
 					gr.setPaintMode();
 					gr.setColor(Color.WHITE);
 				}
-				gr.drawImage(preview.getFrameImage(index, Sprite.DATA_OUTLINE), 
+				gr.drawImage(preview.getFrameImage(realIndex, Sprite.DATA_OUTLINE), 
 						x0 - frame.getAnchorX(Sprite.DATA_OUTLINE),
 						y0 - frame.getAnchorY(Sprite.DATA_OUTLINE),
 						null);
@@ -2095,7 +2098,7 @@ final public class SpriteIO {
 				fx0 += frameWidth; x0 += frameWidth;
 				if (background){
 					gr.fillRect(fx0, fy0, frameWidth, frameHeight);
-					gr.drawImage(preview.getFrameImage(index, Sprite.DATA_SMUDGE), 
+					gr.drawImage(preview.getFrameImage(realIndex, Sprite.DATA_SMUDGE), 
 							x0 - frame.getAnchorX(Sprite.DATA_SMUDGE),
 							y0 - frame.getAnchorY(Sprite.DATA_SMUDGE),
 							null);
@@ -2104,7 +2107,7 @@ final public class SpriteIO {
 					gr.setPaintMode();
 					gr.setColor(Color.WHITE);
 				}else{
-					gr.drawImage(preview.getFrameImage(index, Sprite.DATA_SMUDGE), 
+					gr.drawImage(preview.getFrameImage(realIndex, Sprite.DATA_SMUDGE), 
 							x0 - frame.getAnchorX(Sprite.DATA_SMUDGE),
 							y0 - frame.getAnchorY(Sprite.DATA_SMUDGE),
 							null);

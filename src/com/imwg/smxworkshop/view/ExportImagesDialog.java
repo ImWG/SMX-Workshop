@@ -77,7 +77,8 @@ public class ExportImagesDialog extends PropDialog {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				Sprite sprite = mainFrame.getSprite();
-				int count = sprite.getFrameCount();
+				int count = selectedOnlyCheckbox.getState() ? 
+						mainFrame.getSelectedFrames().length : sprite.getFrameCount();
 				int rows = (int) Math.ceil(Math.sqrt(count));
 				int columns = (int) Math.ceil(count / (double) rows);
 				rowsText.setText(rows);

@@ -14,6 +14,7 @@ abstract public class Sprite implements Iterable<Sprite.Frame> {
 	
 	static public final int PIXEL_NULL = -1;
 	static public final int PIXEL_PLAYER_START = 0x1000000;
+	static public final int MAX_SHADOW_DEPTH = 127;
 	
 	static public final int VERSION_NONE = 0;
 	static public final int VERSION_SLP = 1;
