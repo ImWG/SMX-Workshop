@@ -586,14 +586,24 @@ public class SMXSprite extends Sprite{
 				md = (int)((height0 - y0) * factorY);
 				int width1 = ml + mr, height1 = mu + md;
 				
+				// Owing to different sizes of data, some positions may be out of original bounds.
+				int[] rows = new int[height1];
+				int[] columns = new int[width1];
+				for (int i = 0; i < height1; ++i){
+					rows[i] = (int) Math.max(0, (i - mu) / factorY + y0) * width0;
+				}
+				for (int i = 0; i < width1; ++i){
+					columns[i] = (int) Math.max(0, (i - ml) / factorX + x0);
+				}
+				
 				switch(type){
 				case DATA_IMAGE:
 					short[] image1 = new short[width1 * height1];
 					for (int y=0; y<height1; ++y){
-						int offset = y * width1;
-						int offset0 = (int)((y-mu) / factorY + y0) * width0;
+						final int offset = y * width1;
+						final int offset0 = rows[y]; 
 						for (int x=0; x<width1; ++x){
-							image1[offset + x] = image[offset0 + (int)((x-ml) / factorX + x0)]; 
+							image1[offset + x] = image[offset0 + columns[x]]; 
 						}
 					}
 					this.image = image1;
@@ -601,10 +611,10 @@ public class SMXSprite extends Sprite{
 				case DATA_SHADOW:
 					byte[] shadow1 = new byte[width1 * height1];
 					for (int y=0; y<height1; ++y){
-						int offset = y * width1;
-						int offset0 = (int)((y-mu) / factorY + y0) * width0;
+						final int offset = y * width1;
+						final int offset0 = rows[y]; 
 						for (int x=0; x<width1; ++x){
-							shadow1[offset + x] = shadow[offset0 + (int)((x-ml) / factorX + x0)]; 
+							shadow1[offset + x] = shadow[offset0 + columns[x]]; 
 						}
 					}
 					this.shadow = shadow1;
@@ -612,10 +622,10 @@ public class SMXSprite extends Sprite{
 				case DATA_OUTLINE:
 					byte[] outline1 = new byte[width1 * height1];
 					for (int y=0; y<height1; ++y){
-						int offset = y * width1;
-						int offset0 = (int)((y-mu) / factorY + y0) * width0;
+						final int offset = y * width1;
+						final int offset0 = rows[y]; 
 						for (int x=0; x<width1; ++x){
-							outline1[offset + x] = outline[offset0 + (int)((x-ml) / factorX + x0)]; 
+							outline1[offset + x] = outline[offset0 + columns[x]]; 
 						}
 					}
 					this.outline = outline1;
@@ -623,10 +633,10 @@ public class SMXSprite extends Sprite{
 				case DATA_SMUDGE:
 					short[] smudge1 = new short[width1 * height1];
 					for (int y=0; y<height1; ++y){
-						int offset = y * width1;
-						int offset0 = (int)((y-mu) / factorY + y0) * width0;
+						final int offset = y * width1;
+						final int offset0 = rows[y]; 
 						for (int x=0; x<width1; ++x){
-							smudge1[offset + x] = smudge[offset0 + (int)((x-ml) / factorX + x0)]; 
+							smudge1[offset + x] = smudge[offset0 + columns[x]]; 
 						}
 					}
 					this.smudge = smudge1;
