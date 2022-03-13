@@ -466,4 +466,24 @@ public class MainModel {
 		
 	}
 	
+
+	public void shiftAngleFrames(Sprite sprite, int angles, int radialOffset,
+			int normalOffset) {
+		
+		int framePerAngle = sprite.getFrameCount() / angles;
+		for (int i = angles - 1; i >= 0; --i) {
+			double angle = Math.PI * 2.0 * i / angles;
+			double sa = Math.sin(angle), ca = Math.cos(angle);
+			int dx = (int) Math.round(-ca * radialOffset + sa * normalOffset); 
+			int dy = (int) Math.round((-sa * radialOffset - ca * normalOffset) * 0.5);
+			int offset = i * framePerAngle;
+			int[] indices = new int[framePerAngle];
+			for (int j = 0; j < framePerAngle; ++j) {
+				indices[j] = offset + j;
+			}
+			this.setAnchor(sprite, indices, -1, dx, dy, true);
+		}
+		
+	}
+	
 }

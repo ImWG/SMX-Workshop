@@ -34,6 +34,7 @@ final public class ViewConfig {
 			 AdjustAngleDialog.class,
 			 InterpolateFramesDialog.class,
 			 TrimAngleFramesDialog.class,
+			 ShiftAngleFramesDialog.class,
 			 
 			 MainMenu.class
 		};
