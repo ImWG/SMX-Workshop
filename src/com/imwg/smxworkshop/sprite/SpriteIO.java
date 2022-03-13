@@ -1728,7 +1728,7 @@ final public class SpriteIO {
 									frame.setPixel(Sprite.DATA_IMAGE, x, y, pal.mapping(pixel, rgbMode));
 								}else{ // As shadow
 									int brightness = getBrightness(pixel);
-									if (alpha < 128 && alpha * brightness < 32258){
+									if (alpha < 192 && alpha * brightness < 48387){
 										frame.setPixel(Sprite.DATA_SHADOW, x, y, Math.min(alpha, Sprite.MAX_SHADOW_DEPTH));
 									}
 								}
@@ -1746,7 +1746,7 @@ final public class SpriteIO {
 								int alpha = pixel >> 24 & 0xff;
 								int brightness = getBrightness(pixel);
 								if (alpha < 192 && alpha * brightness < 48387){
-									frame.setPixel(Sprite.DATA_SHADOW, x, y, alpha);
+									frame.setPixel(Sprite.DATA_SHADOW, x, y, Math.min(alpha, Sprite.MAX_SHADOW_DEPTH));
 								}else{
 									if (ppal != null){
 										int pixel1 = pal.mapping(pixel, rgbMode), pixel2 = ppal.mapping(pixel, rgbMode);
