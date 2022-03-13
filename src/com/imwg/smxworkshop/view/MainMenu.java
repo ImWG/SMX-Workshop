@@ -145,7 +145,7 @@ public class MainMenu extends MenuBar{
 				case "root.File.Save":
 					if (mainFrame.currentFile != null){
 						mainFrame.getModel().saveSprite(mainFrame.getSprite(), 
-								new File(mainFrame.currentFile), MainFrame.currentFileFormat);
+								new File(mainFrame.currentFile), "");
 						mainFrame.addRecentFile(mainFrame.currentFile);
 						return;
 					}
@@ -480,7 +480,7 @@ public class MainMenu extends MenuBar{
 					FrameFilter filter = new FrameFilter();
 					for (int index : selected){
 						filter.setFrame(sprite.getFrame(index));
-						filter.addOutline(false, true);
+						filter.addOutline(mainFrame.getSprite() instanceof SLPSprite, true);
 					}
 					mainFrame.refreshAll();
 					break;
@@ -598,6 +598,20 @@ public class MainMenu extends MenuBar{
 							model.trimAngleFrames(mainFrame.getSprite(), 
 									TrimAngleFramesDialog.angles, TrimAngleFramesDialog.startFrame,
 									TrimAngleFramesDialog.frames, TrimAngleFramesDialog.removeSelected);
+							mainFrame.reload();
+						}
+					});
+					dialog.setVisible(true);
+				} break;
+				
+				case "root.Tools.ShiftAngleFrames": {
+					ShiftAngleFramesDialog dialog = new ShiftAngleFramesDialog(mainFrame);
+					dialog.setConfirmedListener(new ActionListener(){
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							model.shiftAngleFrames(mainFrame.getSprite(), 
+									ShiftAngleFramesDialog.angles, ShiftAngleFramesDialog.radialOffset,
+									ShiftAngleFramesDialog.tangentOffset);
 							mainFrame.reload();
 						}
 					});

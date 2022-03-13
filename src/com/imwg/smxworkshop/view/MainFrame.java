@@ -654,6 +654,12 @@ public class MainFrame extends Frame {
 	}
 	
 	static public String currentFileFormat = "smx"; 
+	
+	static private File getFileDirectory(String path) {
+		// If the file is lost, it'd jump to app path.
+		return new File(path.replaceFirst("[^/\\\\]+$", ""));
+	}
+	
 	public File popupChooseSpriteFile(int type){
 		final JFileChooser fd = new JFileChooser();
 		fd.setDialogType(type);
@@ -674,7 +680,8 @@ public class MainFrame extends Frame {
 			fd.setFileFilter(filter.getKey());
 		} 
 		fd.setFileFilter(ff);
-		fd.setCurrentDirectory(new File(MainFrame.currentSpritePath));
+		
+		fd.setCurrentDirectory(getFileDirectory(MainFrame.currentSpritePath));
 		fd.setFileSelectionMode(JFileChooser.FILES_ONLY);
 		fd.setMultiSelectionEnabled(false);
 		
@@ -708,7 +715,7 @@ public class MainFrame extends Frame {
 		    	return fd.getFileSystemView().getSystemIcon(f);
 		    }
 		});
-		fd.setCurrentDirectory(new File(MainFrame.currentImagePath));
+		fd.setCurrentDirectory(getFileDirectory(MainFrame.currentImagePath));
 		fd.setFileSelectionMode(JFileChooser.FILES_ONLY);
 		fd.setMultiSelectionEnabled(type == JFileChooser.OPEN_DIALOG);
 		
