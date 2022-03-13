@@ -17,6 +17,7 @@ import com.imwg.smxworkshop.model.FrameFilter;
 
 public class ImageAdjustDialog extends PropDialog {
 
+	private static final long serialVersionUID = -2726331033002687526L;
 	private Scrollbar brightBar, contrastBar;
 	private Scrollbar hueBar, saturateBar, valueBar;
 	private BufferedImage sourceImage, adjustedImage;

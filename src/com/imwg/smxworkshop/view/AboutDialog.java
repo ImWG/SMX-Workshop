@@ -11,7 +11,6 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 
 import com.imwg.smxworkshop.model.Configuration;
-import com.imwg.smxworkshop.model.MainModel;
 
 public class AboutDialog extends PropDialog {
 

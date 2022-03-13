@@ -10,6 +10,7 @@ import java.awt.event.MouseListener;
 
 public class AdjustAngleDialog extends PropDialog {
 	
+	private static final long serialVersionUID = -1043548521914227479L;
 	private NumberField anglesField; 
 	private ClockPanel srcClock, dstClock;
 	
