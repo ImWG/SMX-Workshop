@@ -12,7 +12,7 @@ import com.imwg.smxworkshop.view.ViewConfig;
 final public class Configuration {
 	public static final String configName = "config.properties";
 	public static final String gitHubPath = "https://github.com/ImWG/SMX-Workshop.git";
-	public static final String VERSION = "1.7 Beta";
+	public static final String VERSION = "1.8 Beta";
 	public static final int RECENT_FILE_COUNT = 10;
 	
 	static private Properties properties;

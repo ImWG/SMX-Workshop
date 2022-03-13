@@ -1,6 +1,21 @@
 Change log
 ===============================
 
+Beta 1.08
+- Added shift anchors by angle tool.
+- file chooser will not restore current path when last file is missing.
+- Fixed a problem that it always use SMX format when save editing file instantly.
+- For newer DE version, change extension names to lower letters.
+- Changed normal pixel range from 128-254 to 192-254 now, while shadow 0-191.
+- If SLP mode, generating outline will contain shadow.
+
+Beta 1.07
+- Less probability of out of memory error occured when rendering large sprite files.
+- Fixed an error when saving a frame of only one pixel width.
+- CNC Plugin can load some different coded frames.
+- Interpolation frames by angle count and convert player color to normal.
+- Fixed an error when scaling some frames.
+- Drag and drop files can be recorded in recent files now.
 
 Beta 1.06
 - Fixed one bug that only extension name of all capital letters can save as SLP files.
