@@ -200,6 +200,12 @@ public class MainFrame extends Frame {
 						canvas.repaint(); 
 					}
 					break;
+				case KeyEvent.VK_ESCAPE:
+					if (MainFrame.this.mode == MainFrame.MODE_SETANCHOR) {
+						MainFrame.this.mode = MainFrame.MODE_NORMAL;
+						MainFrame.this.canvas.setCursor(null);
+					}
+					break;
 				}
 				
 			}

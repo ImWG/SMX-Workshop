@@ -13,7 +13,9 @@ import java.awt.event.ItemListener;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 
@@ -208,6 +210,50 @@ public class MainMenu extends MenuBar{
 					}
 					break;
 				
+				case "root.File.ExportGif":
+					final File[] files3 = mainFrame.popupChooseImagesFile(JFileChooser.SAVE_DIALOG);
+					if (files3 != null){
+						int[] selected = mainFrame.getSelectedFrames();
+						int selectedOnly = 0;
+						if (selected.length < mainFrame.getSprite().getFrameCount()) {
+							selectedOnly = JOptionPane.showConfirmDialog(mainFrame,
+									ViewConfig.getString("ExportImagesDialog.Checkbox.selectedOnly"),
+									ViewConfig.getString("MainMenu.File.ExportGif"),
+									JOptionPane.YES_NO_OPTION,
+									JOptionPane.INFORMATION_MESSAGE) == JOptionPane.YES_OPTION
+									? 1 : 0;	
+						}
+						
+						int imageMode = (mainFrame.displayFlags & 1) != 0 ?
+								SpriteIO.GIF_MODE_NORMAL : SpriteIO.GIF_MODE_NEITHER;
+						if ((mainFrame.displayFlags & 2) != 0)
+							imageMode |= SpriteIO.GIF_MODE_SHADOW_MASK;
+						if ((mainFrame.displayFlags & 4) != 0)
+							imageMode |= SpriteIO.IMAGE_MODE_OUTLINE_MASK;
+						if ((mainFrame.displayFlags & 8) != 0)
+							imageMode |= SpriteIO.IMAGE_MODE_SMUDGE_MASK;
+						imageMode |= SpriteIO.IMAGE_MODE_BACKGROUND_MASK;
+					
+						Map<String, Integer> settings = new Hashtable<String, Integer>();
+						settings.put("imageMode", imageMode);
+						settings.put("anchorMode", SpriteIO.ANCHOR_MODE_ALIGN);
+						settings.put("padding", 0);
+						settings.put("backgroundColor", 0xffffff);
+						settings.put("playerColor", mainFrame.preview.playerColorId);
+						settings.put("selectedOnly", selectedOnly);
+						settings.put("frameRate", Configuration.getAnimationSpeed());
+						try {
+							mainFrame.popupProcessDialog();
+							SpriteIO.exportToGif(mainFrame.getSprite(), files3[0], settings, selected);
+						} catch (IOException e) {
+							e.printStackTrace();
+						}finally{
+							mainFrame.closeProcessDialog();
+							MainFrame.currentImagePath = files3[0].getAbsolutePath();
+						}
+					}
+					break;
+
 				case "root.File.Comment":
 					final String comment = (String) JOptionPane.showInputDialog(
 							mainFrame, null,

@@ -20,6 +20,7 @@ import javax.imageio.ImageIO;
 
 import com.imwg.smxworkshop.model.Configuration;
 import com.imwg.smxworkshop.view.MainFrame;
+import com.madgag.gif.fmsware.AnimatedGifEncoder;
 
 final public class SpriteIO {
 	
@@ -33,6 +34,13 @@ final public class SpriteIO {
 	public static final int IMAGE_MODE_OUTLINE_MASK = 0x10;
 	public static final int IMAGE_MODE_SMUDGE_MASK = 0x20;
 	public static final int IMAGE_MODE_BACKGROUND_MASK = 0x100;
+	
+	public static final int GIF_MODE_NEITHER = 0;
+	public static final int GIF_MODE_NORMAL = 1;
+	public static final int GIF_MODE_SHADOW = 2;
+	public static final int GIF_MODE_BOTH = 3;
+	public static final int GIF_MODE_NORMAL_MASK = 0x1;
+	public static final int GIF_MODE_SHADOW_MASK = 0x2;
 	
 	public static final int ANCHOR_MODE_TIGHT = 0;
 	public static final int ANCHOR_MODE_ALIGN = 1;
@@ -1640,7 +1648,7 @@ final public class SpriteIO {
 		
 		Palette pal = Palette.getPalette(palette);
 		Palette ppal = null;
-		if (playerPalette >= 0 && playerPalette < 8){
+		if (playerMode != Sprite.PLAYER_PALETTE_NONE && playerPalette >= 0 && playerPalette < 8){
 			ppal = Palette.getPlayerPalette(playerMode, playerPalette);
 		}
 		
@@ -1930,49 +1938,15 @@ final public class SpriteIO {
 				int limit = Math.min(perImage, frameCount - offset);
 				
 				// Calculate size of strip frames
-				switch (anchorMode){
-				case ANCHOR_MODE_TIGHT: // None
-					frameWidth = 0;
-					frameHeight = 0;
-					for (int i = 0; i < limit; ++i){
-						Sprite.Frame frame = sprite.getFrame(frameIds[i + offset]);
-						frameWidth = Math.max(frameWidth, frame.getWidth()); 
-						frameHeight = Math.max(frameHeight, frame.getHeight());
-					}
-					break;
-				case ANCHOR_MODE_ALIGN: // Aligned
-					int ml = 0, mr = 0, mu = 0, md = 0;
-					for (int i = 0; i < limit; ++i){
-						Sprite.Frame frame = sprite.getFrame(frameIds[i + offset]);
-						int anchorX = frame.getAnchorX(), anchorY = frame.getAnchorY();
-						ml = Math.max(ml, anchorX);
-						mu = Math.max(mu, anchorY);
-						mr = Math.max(mr, frame.getWidth() - anchorX);
-						md = Math.max(md, frame.getHeight() - anchorY);
-					}
-					frameX = ml;
-					frameY = mu;
-					frameWidth = ml + mr; 
-					frameHeight = mu + md;
-					break;
-				case ANCHOR_MODE_CENTER: // Aligned, center
-					frameWidth = 0;
-					frameHeight = 0;
-					for (int i = 0; i < limit; ++i){
-						Sprite.Frame frame = sprite.getFrame(frameIds[i + offset]);
-						int anchorX = frame.getAnchorX(), anchorY = frame.getAnchorY();
-						frameWidth = Math.max(frameWidth, Math.max(anchorX, frame.getWidth() - anchorX));
-						frameHeight = Math.max(frameHeight, Math.max(anchorY, frame.getHeight() - anchorY));
-					}
-					frameX = frameWidth;
-					frameY = frameHeight;
-					frameWidth <<= 1; 
-					frameHeight <<= 1;
-					break;
+				int[] sliceIds = new int[limit];
+				for (int i = 0; i < limit; ++i) {
+					sliceIds[i] = frameIds[offset + i];
 				}
-				
-				frameWidth += padding * 2;
-				frameHeight += padding * 2;
+				int[] coord = getFramesCoordinate(sprite, sliceIds, anchorMode);
+				frameX = coord[0];
+				frameY = coord[1];
+				frameWidth = coord[2] + padding * 2;
+				frameHeight = coord[3] + padding * 2;
 				
 				im = new BufferedImage(frameWidth * columns * stride,
 						frameHeight * rows, BufferedImage.TYPE_INT_ARGB);
@@ -2129,6 +2103,188 @@ final public class SpriteIO {
 		}
 		
 		return imageCount;
+	}
+	
+	static public int exportToGif(Sprite sprite, File file, Map<String, Integer> settings,
+			int[] frameIds) throws IOException {
+		
+		if (sprite.getFrameCount() <= 0)
+			return 0;
+		
+		String filePath = file.getAbsolutePath();
+		if (!filePath.toUpperCase().endsWith(".GIF")){ // No postfix
+			filePath += ".GIF";
+		}
+		
+		int imageMode = settings.get("imageMode");
+		int anchorMode = settings.get("anchorMode");
+		int padding = settings.get("padding");
+		int frameRate = settings.get("frameRate");
+		Color backgroundColor = new Color(settings.get("backgroundColor"));
+		
+		boolean normal = (imageMode & GIF_MODE_NORMAL_MASK) != 0;
+		boolean shadow = (imageMode & GIF_MODE_SHADOW_MASK) != 0;
+		boolean outline = (imageMode & IMAGE_MODE_OUTLINE_MASK) != 0;
+		boolean smudge = (imageMode & IMAGE_MODE_SMUDGE_MASK) != 0;
+		boolean background = (imageMode & IMAGE_MODE_BACKGROUND_MASK) != 0;
+
+		SpritePreview preview = new SpritePreview();
+		preview.setSprite(sprite);
+		preview.playerColorId = settings.get("playerColor");
+		preview.refresh();
+		
+		if (settings.get("selectedOnly") == 0){
+			frameIds = new int[sprite.getFrameCount()];
+			for (int i = 0; i < sprite.getFrameCount(); ++i){
+				frameIds[i] = i;
+			}
+		}
+		
+		int frameCount = frameIds.length;
+		int[] coord = getFramesCoordinate(sprite, frameIds, anchorMode);
+		int frameX = coord[0], frameY = coord[1];
+		int frameWidth = coord[2] + padding * 2, frameHeight = coord[3] + padding * 2;
+		
+		AnimatedGifEncoder age = new AnimatedGifEncoder(); 
+		age.start(filePath);
+		age.setRepeat(0);
+		age.setDelay(frameRate);
+		age.setBackground(null);
+		
+		int[] pixelBuffer = new int[frameWidth * frameHeight];
+		
+		for (int index = 0; index < frameCount; ++index){
+			
+			MainFrame.setProcessString(String.format("Processing %d/%d ...", index, frameCount));
+			
+			int x0 = padding, y0 = padding;
+			
+			int realIndex = frameIds[index];
+			Sprite.Frame frame = sprite.getFrame(realIndex);
+			
+			if (anchorMode == ANCHOR_MODE_TIGHT){
+				x0 += frame.getAnchorX(); y0 += frame.getAnchorY();
+			} else {
+				x0 += frameX; y0 += frameY;
+			}
+			
+			// Wait for Notification
+			while (!preview.getFrameStatus(realIndex));
+			
+			BufferedImage im = new BufferedImage(frameWidth, frameHeight, BufferedImage.TYPE_INT_ARGB);
+			Graphics gr = im.getGraphics();
+			gr.setColor(Color.WHITE);
+			gr.setPaintMode();
+			
+			// Draw background color
+			if (background){
+				gr.setColor(backgroundColor);
+				gr.fillRect(0, 0, frameWidth, frameHeight);
+				gr.setColor(Color.WHITE);
+			}
+			
+			// Draw main image
+			if (shadow){
+				gr.drawImage(preview.getFrameImage(realIndex, Sprite.DATA_SHADOW), 
+						x0 - frame.getAnchorX(Sprite.DATA_SHADOW),
+						y0 - frame.getAnchorY(Sprite.DATA_SHADOW),
+						null);
+			}
+			if (normal){
+				gr.drawImage(preview.getFrameImage(realIndex, Sprite.DATA_IMAGE), 
+						x0 - frame.getAnchorX(Sprite.DATA_IMAGE),
+						y0 - frame.getAnchorY(Sprite.DATA_IMAGE),
+						null);
+			}
+			if (smudge){
+				gr.drawImage(preview.getFrameImage(realIndex, Sprite.DATA_SMUDGE),
+						x0 - frame.getAnchorX(Sprite.DATA_SMUDGE),
+						y0 - frame.getAnchorY(Sprite.DATA_SMUDGE),
+						null);
+			}			
+			if (outline){
+				gr.drawImage(preview.getFrameImage(realIndex, Sprite.DATA_OUTLINE), 
+						x0 - frame.getAnchorX(Sprite.DATA_OUTLINE),
+						y0 - frame.getAnchorY(Sprite.DATA_OUTLINE),
+						null);
+			}
+			
+			if (background) {
+				age.addFrame(im);
+			}else{
+				// TODO TRANSPARENT NOT SUPPORTED GOOD 
+				im.getRGB(0, 0, frameWidth, frameHeight, pixelBuffer, 0, frameWidth);
+				for (int i = pixelBuffer.length - 1; i >= 0; --i) {
+					int p = pixelBuffer[i];
+					int r = p & 0xff0000, g = p & 0xff00, b = p & 0xff;
+					if ((p >> 12 & 0xff) >= 0x40) {
+						r = Math.max(r, 0x010000);
+						g = Math.max(g, 0x0100);
+						b = Math.max(b, 0x01);
+						pixelBuffer[i] = 0xff000000 | r | g | b;	
+					}else {
+						pixelBuffer[i] = 0xff000000;
+					}
+				}
+				im.setRGB(0, 0, frameWidth, frameHeight, pixelBuffer, 0, frameWidth);
+				age.addFrame(im);
+				age.setTransparent(Color.BLACK, true);
+			}
+			
+		}
+		age.finish();
+		
+		return frameCount;
+
+	}
+	
+	static private int[] getFramesCoordinate(Sprite sprite, int[] frameIds, int anchorMode) {
+		// Calculate size of strip frames
+		int frameX = 0, frameY = 0, frameWidth = 0, frameHeight = 0;
+		int frameCount = frameIds.length;
+		
+		switch (anchorMode){
+		case ANCHOR_MODE_TIGHT: // None
+			frameWidth = 0;
+			frameHeight = 0;
+			for (int i = 0; i < frameCount; ++i){
+				Sprite.Frame frame = sprite.getFrame(frameIds[i]);
+				frameWidth = Math.max(frameWidth, frame.getWidth()); 
+				frameHeight = Math.max(frameHeight, frame.getHeight());
+			}
+			break;
+		case ANCHOR_MODE_ALIGN: // Aligned
+			int ml = 0, mr = 0, mu = 0, md = 0;
+			for (int i = 0; i < frameCount; ++i){
+				Sprite.Frame frame = sprite.getFrame(frameIds[i]);
+				int anchorX = frame.getAnchorX(), anchorY = frame.getAnchorY();
+				ml = Math.max(ml, anchorX);
+				mu = Math.max(mu, anchorY);
+				mr = Math.max(mr, frame.getWidth() - anchorX);
+				md = Math.max(md, frame.getHeight() - anchorY);
+			}
+			frameX = ml;
+			frameY = mu;
+			frameWidth = ml + mr; 
+			frameHeight = mu + md;
+			break;
+		case ANCHOR_MODE_CENTER: // Aligned, center
+			frameWidth = 0;
+			frameHeight = 0;
+			for (int i = 0; i < frameCount; ++i){
+				Sprite.Frame frame = sprite.getFrame(frameIds[i]);
+				int anchorX = frame.getAnchorX(), anchorY = frame.getAnchorY();
+				frameWidth = Math.max(frameWidth, Math.max(anchorX, frame.getWidth() - anchorX));
+				frameHeight = Math.max(frameHeight, Math.max(anchorY, frame.getHeight() - anchorY));
+			}
+			frameX = frameWidth;
+			frameY = frameHeight;
+			frameWidth <<= 1; 
+			frameHeight <<= 1;
+			break;
+		}
+
+		return new int[]{frameX, frameY, frameWidth, frameHeight};
 	}
 	
 	
