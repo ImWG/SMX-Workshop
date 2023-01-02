@@ -15,12 +15,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
 
 import com.imwg.smxworkshop.model.Configuration;
 import com.imwg.smxworkshop.view.MainFrame;
-import com.madgag.gif.fmsware.AnimatedGifEncoder;
+//import com.madgag.gif.fmsware.AnimatedGifEncoder;
+import com.squareup.gifencoder.GifEncoder;
+import com.squareup.gifencoder.ImageOptions;
 
 final public class SpriteIO {
 	
@@ -453,7 +456,7 @@ final public class SpriteIO {
 							len = readInteger(fis, 1, false);
 						}
 						for (int j=0; j<len; ++j){
-							frame.setPixel(Sprite.DATA_SHADOW, x++, y, 0);
+							frame.setPixel(Sprite.DATA_SHADOW, x++, y, 1);
 						}
 						
 					}else if (bytl == 0xE){
@@ -1271,7 +1274,7 @@ final public class SpriteIO {
 			// Shadow
 			width = frame.getWidth(Sprite.DATA_SHADOW);
 			height = frame.getHeight(Sprite.DATA_SHADOW);
-			byte[] dataShadow = new byte[width * height * 2];
+			byte[] dataShadow = new byte[(width + 1) * height * 2];
 			paddingsShadow = new int[height * 2];
 			if (height > 0){
 				smpSize += 32 + height * 8;
@@ -2145,13 +2148,18 @@ final public class SpriteIO {
 		int frameX = coord[0], frameY = coord[1];
 		int frameWidth = coord[2] + padding * 2, frameHeight = coord[3] + padding * 2;
 		
-		AnimatedGifEncoder age = new AnimatedGifEncoder(); 
-		age.start(filePath);
-		age.setRepeat(0);
-		age.setDelay(frameRate);
-		age.setBackground(null);
+		FileOutputStream fos = new FileOutputStream(filePath);
+		GifEncoder ge = new GifEncoder(fos, frameWidth, frameHeight, 0); 
+		ImageOptions opt = new ImageOptions();
+		opt.setDelay(frameRate, TimeUnit.MILLISECONDS);
 		
-		int[] pixelBuffer = new int[frameWidth * frameHeight];
+//		AnimatedGifEncoder age = new AnimatedGifEncoder(); 
+//		age.start(filePath);
+//		age.setRepeat(0);
+//		age.setDelay(frameRate);
+//		age.setBackground(null);
+		
+//		int[] pixelBuffer = new int[frameWidth * frameHeight];
 		
 		for (int index = 0; index < frameCount; ++index){
 			
@@ -2210,29 +2218,32 @@ final public class SpriteIO {
 			}
 			
 			if (background) {
-				age.addFrame(im);
+				// age.addFrame(im);
+				ge.addImage(im.getRGB(0, 0, frameWidth, frameHeight, null, 0, frameWidth), frameWidth, opt);
 			}else{
 				// TODO TRANSPARENT NOT SUPPORTED GOOD 
-				im.getRGB(0, 0, frameWidth, frameHeight, pixelBuffer, 0, frameWidth);
-				for (int i = pixelBuffer.length - 1; i >= 0; --i) {
-					int p = pixelBuffer[i];
-					int r = p & 0xff0000, g = p & 0xff00, b = p & 0xff;
-					if ((p >> 12 & 0xff) >= 0x40) {
-						r = Math.max(r, 0x010000);
-						g = Math.max(g, 0x0100);
-						b = Math.max(b, 0x01);
-						pixelBuffer[i] = 0xff000000 | r | g | b;	
-					}else {
-						pixelBuffer[i] = 0xff000000;
-					}
-				}
-				im.setRGB(0, 0, frameWidth, frameHeight, pixelBuffer, 0, frameWidth);
-				age.addFrame(im);
-				age.setTransparent(Color.BLACK, true);
+//				im.getRGB(0, 0, frameWidth, frameHeight, pixelBuffer, 0, frameWidth);
+//				for (int i = pixelBuffer.length - 1; i >= 0; --i) {
+//					int p = pixelBuffer[i];
+//					int r = p & 0xff0000, g = p & 0xff00, b = p & 0xff;
+//					if ((p >> 12 & 0xff) >= 0x40) {
+//						r = Math.max(r, 0x010000);
+//						g = Math.max(g, 0x0100);
+//						b = Math.max(b, 0x01);
+//						pixelBuffer[i] = 0xff000000 | r | g | b;	
+//					}else {
+//						pixelBuffer[i] = 0xff000000;
+//					}
+//				}
+//				im.setRGB(0, 0, frameWidth, frameHeight, pixelBuffer, 0, frameWidth);
+//				age.addFrame(im);
+//				age.setTransparent(Color.BLACK, true);
 			}
 			
 		}
-		age.finish();
+//		age.finish();
+		ge.finishEncoding();
+		fos.close();
 		
 		return frameCount;
 

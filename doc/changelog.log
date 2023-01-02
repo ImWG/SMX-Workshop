@@ -1,6 +1,21 @@
 Change log
 ===============================
 
+Beta 1.08.2
+- Fixed a problem that shadows get lost when reading SLP files.
+- Added easy way to convert sprite to AOE/AOK/AOE2DE(SMX).
+- Exporting to GIF will not make the output file engaged(until SMX Workshop closed) anymore.
+- Fixed a problem causing exception when there was no custom palette directory.
+- Fixed a problem that when exporting a Nx1 shadow frame.
+- Fixed a problem that importing CNC SHP making player colors removed.
+- Fixed a problem that exporting CNC SHP making frames changed when selected "Combine Shadow".
+
+Beta 1.08.1
+- Updated new palettes.
+- Sprites can export as animated GIF now.
+- Fix one bug that it always had player colored on normal import mode.
+- Press Escape to leave set anchor mode.
+
 Beta 1.08
 - Added shift anchors by angle tool.
 - file chooser will not restore current path when last file is missing.

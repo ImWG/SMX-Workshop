@@ -74,6 +74,8 @@ public class MainFrame extends Frame {
 	public String currentFile = null;
 	private boolean processing;
 	
+	public boolean hasShownSLPHintDialog = false;
+	
 	static private String processString;
 	static private boolean processBreakable;
 	

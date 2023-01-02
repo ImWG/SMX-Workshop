@@ -272,6 +272,8 @@ public class Palette {
 					customPalettes[i] = new Palette("palettes/" + fileName);
 					customPaletteNames[i] = fileName;
 				}
+			}else {
+				customPalettes = new Palette[0];
 			}
 		
 		} catch (IOException e) {

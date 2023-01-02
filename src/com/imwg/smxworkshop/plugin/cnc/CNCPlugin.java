@@ -112,7 +112,6 @@ public class CNCPlugin extends Plugin{
 						int pixel = frame.getPixel(Sprite.DATA_IMAGE, x, y); 
 						if (pixel != Sprite.PIXEL_NULL){
 							if (pixel >= 16 && pixel < 32){
-								System.out.println(pixel);
 								frame.setPixel(Sprite.DATA_IMAGE, x, y, 
 										Sprite.PIXEL_PLAYER_START + mapping[pixel - 16]);
 							}
@@ -280,16 +279,18 @@ public class CNCPlugin extends Plugin{
 			if (pixel >= 16 && pixel < 32){
 				frame.setPixel(Sprite.DATA_IMAGE, x, y, 
 						playerMap[pixel - 16] + Sprite.PIXEL_PLAYER_START);
+				return;
 			}
-			return;
 		}
 		frame.setPixel(Sprite.DATA_IMAGE, x, y, pixel);
 	}
 	
 	static private boolean saveSHP(Sprite sprite, File file, boolean shadow, boolean playerMode){ // TODO
 		
-		if (shadow)
+		if (shadow) {
+			sprite = new SMXSprite(sprite);
 			separateShadow(sprite);
+		}
 		
 		// Mapping from original player colors to CNC's
 		int[] playerMap = Palette.getMappingArray(

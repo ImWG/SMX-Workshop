@@ -663,6 +663,64 @@ public class MainMenu extends MenuBar{
 					});
 					dialog.setVisible(true);
 				} break;
+				
+				case "root.Tools.toAOE":
+				case "root.Tools.toAOK": {
+					if (!mainFrame.hasShownSLPHintDialog) {
+						mainFrame.hasShownSLPHintDialog = true;
+						JOptionPane.showMessageDialog(mainFrame,
+								ViewConfig.getString("Common.SLPHintDialog"));
+					}
+					int[] indices = new int[sprite.getFrameCount()];
+					for (int i = 0; i < indices.length; ++i) {
+						indices[i] = i;
+					}
+					boolean isAOE = action.equals("root.Tools.toAOE"); 
+					model.setPalette(sprite, indices, isAOE ? 256 : 0, true);
+					model.setPlayerPalette(sprite, isAOE ? Sprite.PLAYER_PALETTE_AOE : Sprite.PLAYER_PALETTE_AOK, true);
+					model.removeFrameData(sprite, indices, Sprite.DATA_OUTLINE);
+					filter = new FrameFilter();
+					for (int index : indices){
+						filter.setFrame(sprite.getFrame(index));
+						filter.changeShadowToDithered(
+								ConvertShadowDialog.mode, ConvertShadowDialog.levels,
+								ConvertShadowDialog.low, ConvertShadowDialog.high);
+						filter.addOutline(true, true);
+					}
+					
+					if (sprite.getVersion() != Sprite.VERSION_SLP){
+						SLPSprite sprite1 = new SLPSprite(mainFrame.getSprite());
+						mainFrame.loadSprite(sprite1);
+					}else{
+						mainFrame.refreshAll();
+					}
+				} break;
+				
+				case "root.Tools.toDE": {
+					int[] indices = new int[sprite.getFrameCount()];
+					for (int i = 0; i < indices.length; ++i) {
+						indices[i] = i;
+					}
+					model.setPalette(sprite, indices, 0, true);
+					model.setPlayerPalette(sprite, Sprite.PLAYER_PALETTE_DE, true);
+					model.removeFrameData(sprite, indices, Sprite.DATA_OUTLINE);
+					filter = new FrameFilter();
+					
+					if (sprite.getVersion() != Sprite.VERSION_SMX){
+						SMXSprite sprite1 = new SMXSprite(mainFrame.getSprite());
+						for (int index : indices){
+							filter.setFrame(sprite1.getFrame(index));
+							filter.addOutline(true, true);
+						}
+						mainFrame.loadSprite(sprite1);
+					}else{
+						for (int index : indices){
+							filter.setFrame(sprite.getFrame(index));
+							filter.addOutline(true, true);
+						}
+						mainFrame.refreshAll();
+					}
+				} break;
 					
 				}
 			}
