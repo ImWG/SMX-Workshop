@@ -28,7 +28,7 @@ public class ImportImagesDialog extends PropDialog {
 	private Checkbox autoCropCheckbox;
 	private Canvas paletteCanvas;
 	private Checkbox hsvModeCheckbox;
-	private NumberField rowsText, columnsText;
+	private NumberField rowsText, columnsText, minimumNormalAlphaText;
 	private Checkbox outlineCheckbox, smudgeCheckbox, csvCheckbox;
 		
 	private int[] palettes;
@@ -47,6 +47,7 @@ public class ImportImagesDialog extends PropDialog {
 			put("rows", 1);
 			put("columns", 1);
 			put("csv", 0);
+			put("minimumNormalAlpha", 192);
 		}
 	};
 	final static private int[] playerModes = new int[]{
@@ -101,6 +102,8 @@ public class ImportImagesDialog extends PropDialog {
 		this.add(rowsText = new NumberField(true), "TextField.rows");
 		this.add(columnsText = new NumberField(true), "TextField.columns");
 		
+		this.add(minimumNormalAlphaText = new NumberField(true), "TextField.minimumNormalAlphaText");
+		
 		autoCropCheckbox = this.addCheckbox("Checkbox.autoCrop");
 		hsvModeCheckbox = this.addCheckbox("Checkbox.hsvMode");
 		outlineCheckbox = this.addCheckbox("Checkbox.outline");
@@ -134,6 +137,8 @@ public class ImportImagesDialog extends PropDialog {
 		rowsText.setRange(1, null);
 		columnsText.setText(settings.get("columns"));
 		columnsText.setRange(1, null);
+		minimumNormalAlphaText.setText(settings.get("minimumNormalAlpha"));
+		minimumNormalAlphaText.setRange(0, 255);
 		
 		int imageMode = settings.get("imageMode");
 		outlineCheckbox.setState((imageMode & SpriteIO.IMAGE_MODE_OUTLINE_MASK) != 0);
@@ -172,6 +177,7 @@ public class ImportImagesDialog extends PropDialog {
 		settings.put("cutOpaqueTolerance", cutOpaqueText.getInteger());
 		settings.put("rows", rowsText.getInteger());
 		settings.put("columns", columnsText.getInteger());
+		settings.put("minimumNormalAlpha", minimumNormalAlphaText.getInteger());
 		
 		settings.put("autoCrop", autoCropCheckbox.getState() ? 1 : 0);
 		settings.put("hsvMode", hsvModeCheckbox.getState() ? 1 : 0);

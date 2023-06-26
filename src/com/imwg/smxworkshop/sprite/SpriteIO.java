@@ -1621,6 +1621,8 @@ final public class SpriteIO {
 		int cutOpaqueTolerance = settings.get("cutOpaqueTolerance");
 		int frameRows = settings.get("rows");
 		int frameColumns = settings.get("columns");
+		int minimumNormalAlpha = settings.get("minimumNormalAlpha");
+		int maximumShadowFactor = minimumNormalAlpha * 381; // 48387
 		
 		int imageMode = settings.get("imageMode");
 		boolean outline = (imageMode & IMAGE_MODE_OUTLINE_MASK) != 0;
@@ -1735,11 +1737,11 @@ final public class SpriteIO {
 								if (alpha == 255){ // As Player Color
 									frame.setPixel(Sprite.DATA_IMAGE, x, y, 
 											ppal.mapping(pixel, rgbMode) + Sprite.PIXEL_PLAYER_START);
-								}else if (alpha >= 192){ // As Normal
+								}else if (alpha >= minimumNormalAlpha){ // As Normal
 									frame.setPixel(Sprite.DATA_IMAGE, x, y, pal.mapping(pixel, rgbMode));
 								}else{ // As shadow
 									int brightness = getBrightness(pixel);
-									if (alpha < 192 && alpha * brightness < 48387){
+									if (alpha * brightness < maximumShadowFactor){
 										frame.setPixel(Sprite.DATA_SHADOW, x, y, Math.min(alpha, Sprite.MAX_SHADOW_DEPTH));
 									}
 								}
@@ -1756,7 +1758,7 @@ final public class SpriteIO {
 								
 								int alpha = pixel >> 24 & 0xff;
 								int brightness = getBrightness(pixel);
-								if (alpha < 192 && alpha * brightness < 48387){
+								if (alpha < minimumNormalAlpha && alpha * brightness < maximumShadowFactor){
 									frame.setPixel(Sprite.DATA_SHADOW, x, y, Math.min(alpha, Sprite.MAX_SHADOW_DEPTH));
 								}else{
 									if (ppal != null){

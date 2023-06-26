@@ -597,8 +597,8 @@ public class MainFrame extends Frame {
 							(List<File>) tf.getTransferData(DataFlavor.javaFileListFlavor);
 		            File firstFile = list.get(0);
 		            String firstName = firstFile.getName().toUpperCase(); 
-		            if (firstName.endsWith(".BMP") || firstName.endsWith(".JPG") || firstName.endsWith(".PNG")
-		            		|| firstName.endsWith(".GIF")){ // Import from images
+		            if (firstName.endsWith(".BMP") || firstName.endsWith(".JPG") || firstName.endsWith(".JPEG")
+		            		|| firstName.endsWith(".PNG") || firstName.endsWith(".GIF")){ // Import from images
 		            	
 						ImportImagesDialog dialog = new ImportImagesDialog(mainFrame);
 						dialog.setConfirmedListener(new ActionListener(){
