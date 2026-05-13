@@ -25,6 +25,7 @@ abstract public class Sprite implements Iterable<Sprite.Frame> {
 	static public final int PLAYER_PALETTE_AOK = 1;
 	static public final int PLAYER_PALETTE_AOE = 2;
 	static public final int PLAYER_PALETTE_AOEDE = 3;
+	static public final int NUM_OF_PLAYER_PALETTES = 4;
 	
 	static public final int FLIP_HORIZONTAL = 1;
 	static public final int FLIP_VERTICAL = 2;
@@ -200,7 +201,10 @@ abstract public class Sprite implements Iterable<Sprite.Frame> {
 				this.expand(type, anchorx, anchory, width - anchorx, height - anchory);
 				for (int i=0; i<frame.getHeight(type); ++i){
 					for (int j=0; j<frame.getWidth(type); ++j){
-						this.setPixel(type, j, i, frame.getPixel(type, j, i));
+						int pixel = frame.getPixel(type, j, i);
+						if (pixel != PIXEL_NULL) {
+							this.setPixel(type, j, i, pixel);
+						}
 					}
 				}
 			}

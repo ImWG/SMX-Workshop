@@ -4,6 +4,7 @@ import java.awt.AWTEvent;
 import java.awt.BorderLayout;
 import java.awt.Canvas;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dialog;
 import java.awt.Dimension;
@@ -23,6 +24,8 @@ import java.awt.dnd.DropTargetListener;
 import java.awt.event.AWTEventListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
@@ -314,7 +317,7 @@ public class MainFrame extends Frame {
 				processInfo.setBounds(16, 38, 168, 24);
 				Label processHint = new Label();
 				processHint.setBounds(16, 64, 168, 24);
-				processHint.setText("Press Pause to Break...");
+				processHint.setText("Press Ctrl+C or Pause to Break...");
 				processHint.setVisible(false);
 				processDialog.add(processInfo);
 				processDialog.add(processHint);
@@ -322,7 +325,10 @@ public class MainFrame extends Frame {
 					@Override
 					public void eventDispatched(AWTEvent event) {
 						if (processBreakable){
-							if (((KeyEvent) event).getKeyCode() == KeyEvent.VK_PAUSE)
+							KeyEvent ke = (KeyEvent) event;
+							if (ke.getKeyCode() == KeyEvent.VK_PAUSE ||
+									ke.getKeyCode() == KeyEvent.VK_C &&
+									ke.getModifiersEx() == KeyEvent.CTRL_DOWN_MASK)
 								closeProcessDialog();
 						}
 					}
@@ -468,7 +474,7 @@ public class MainFrame extends Frame {
 			}
 		};
 		listPanel.setVisible(true);
-		listPanel.setPreferredSize(new Dimension(150, getHeight()));
+		listPanel.setPreferredSize(new Dimension(176, getHeight()));
 		
 		listPanel.setBackground(ViewConfig.backgroundColor);
 		speedField = new NumberField(true);
@@ -604,7 +610,8 @@ public class MainFrame extends Frame {
 						dialog.setConfirmedListener(new ActionListener(){
 							@Override
 							public void actionPerformed(ActionEvent e) {
-								File[] files = (File[]) list.toArray();
+								File[] files = new File[list.size()];
+								list.toArray(files);
 								Sprite sprite = null;
 								mainFrame.popupProcessDialog();
 								try {
@@ -677,12 +684,13 @@ public class MainFrame extends Frame {
 		    }
 		});
 		
-		FileNameExtensionFilter ff = new FileNameExtensionFilter("Supported Files", "smx", "slp","smp");
+		FileNameExtensionFilter ff = new FileNameExtensionFilter("Supported Files", "smx", "slp", "smp", "sld");
 		Map<FileFilter, String> formats = new LinkedHashMap<FileFilter, String>(); // Ordered
 		formats.put(ff, "");
-		formats.put(new FileNameExtensionFilter("SLP File", "SLP"), "slp");
-		formats.put(new FileNameExtensionFilter("SMP File", "SMP"), "smp");
-		formats.put(new FileNameExtensionFilter("SMX File", "SMX"), "smx");
+		formats.put(new FileNameExtensionFilter("SLP File", "slp"), "slp");
+		formats.put(new FileNameExtensionFilter("SMP File", "smp"), "smp");
+		formats.put(new FileNameExtensionFilter("SMX File", "smx"), "smx");
+		formats.put(new FileNameExtensionFilter("SLD File", "sld"), "sld");
 		
 		for (Entry<FileFilter, String> filter : formats.entrySet()){
 			fd.setFileFilter(filter.getKey());
@@ -692,6 +700,7 @@ public class MainFrame extends Frame {
 		fd.setCurrentDirectory(getFileDirectory(MainFrame.currentSpritePath));
 		fd.setFileSelectionMode(JFileChooser.FILES_ONLY);
 		fd.setMultiSelectionEnabled(false);
+		fd.setSelectedFile(new File(MainFrame.currentSpritePath));
 		
 		if (fd.showDialog(this, null) == JFileChooser.APPROVE_OPTION){
 			if (fd.getSelectedFile() != null) {
@@ -709,6 +718,43 @@ public class MainFrame extends Frame {
 					}
 				}
 				return file;
+			}
+		}
+		return null;
+	}
+	
+
+	public File[] popupChooseSpriteFiles(int type){
+		final JFileChooser fd = new JFileChooser();
+		fd.setDialogType(type);
+		fd.setFileView(new FileView() {
+		    public Icon getIcon(File f) {
+		    	return fd.getFileSystemView().getSystemIcon(f);
+		    }
+		});
+
+		FileNameExtensionFilter ff = new FileNameExtensionFilter("Supported Files", "smx", "slp", "smp", "sld");
+		Map<FileFilter, String> formats = new LinkedHashMap<FileFilter, String>(); // Ordered
+		formats.put(ff, "");
+		formats.put(new FileNameExtensionFilter("SLP File", "slp"), "slp");
+		formats.put(new FileNameExtensionFilter("SMP File", "smp"), "smp");
+		formats.put(new FileNameExtensionFilter("SMX File", "smx"), "smx");
+		formats.put(new FileNameExtensionFilter("SLD File", "sld"), "sld");
+		
+		for (Entry<FileFilter, String> filter : formats.entrySet()){
+			fd.setFileFilter(filter.getKey());
+		} 
+		fd.setFileFilter(ff);
+		
+		fd.setCurrentDirectory(getFileDirectory(MainFrame.currentSpritePath));
+		fd.setFileSelectionMode(JFileChooser.FILES_ONLY);
+		fd.setMultiSelectionEnabled(true);
+		fd.setSelectedFile(new File(MainFrame.currentSpritePath));
+		
+		if (fd.showDialog(this, null) == JFileChooser.APPROVE_OPTION){
+			if (fd.getSelectedFiles() != null) {
+				File[] files = fd.getSelectedFiles();
+				return files;
 			}
 		}
 		return null;
@@ -741,7 +787,7 @@ public class MainFrame extends Frame {
 		}
 		return null;
 	}
-
+	
 	public void exit() {
 		MainModel.exit();
         System.exit(0);		

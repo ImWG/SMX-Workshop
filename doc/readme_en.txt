@@ -1,24 +1,27 @@
-SMX Workshop Beta 1.8.2 Help
+SMX Workshop Beta 1.9.2 Help
 
 About
 ====================================================
-This is used to load, create or modify sprite files of various editions of Age of Empires 1 & 2, including AOE and AOK's SLP files, AOE: DE's SLP files and AOE2: DE's SMP or SMX files. You can convert between different formats, import from images and export to iamge files, or apply many other interior modification functions.
+This is used to load, create or modify sprite files of various editions of Age of Empires 1 & 2, including AOE and AOK's SLP files, AOE: DE's SLP files and AOE2: DE's SMP, SMX or SLD files. You can convert between different formats, import from images and export to iamge files, or apply many other interior modification functions.
 
 Open/Save Files
 ====================================================
 Besides open file browser via menu or hotkey Ctrl+O, you can also drag and drop sprite files into the window to open them.
-At present, the tool supports those files: SLP 2.0N(of AOE and AOK), SLP 4.0X(of AOE: DE), SMP and SMX(both of AOE2: DE). However, you can't save as SLP 4.0X or SMP files now.
+At present, the tool supports those files: SLP 2.0N(of AOE and AOK), SLP 4.0X(of old AOE: DE), SMP and SMX(both of old AOE2: DE), and SLD(AOE: DE and AOE2: DE). However, you can't save as SLP 4.0X or SMP files, and SLD will lose some quality now.
 Different formats have respective features:
 SLP 2.0N - Only 256 levels of normal color, 16 levels of player color, one level shadow and one level of outline. Shadow and outline can't overlap main image.
 SLP 4.0X - Only 256 levels of normal color, player color and shadow. Shadow can overlap main image.
 SMP - 1024 levels of normal color and player color, 256 levels of shadow, one level of outline. Shadow and outline can overlap main image. Main image can attach 1024 levels of smudge data.
 SMX - Similar with SMP, except smaller size.
+SLD - 65536 levels of normal color, 256 levels of tint player color depth over normal, 256 levels of shadow and 65536 levels of smudge (smudge is merged to one channel in smxwork). Lossy Compressed.
+
 Sprite contains main image, shadow, outline and smudge data. There are:
 Main image - Primary data of sprites, including normal image and player image, the latter can show different colors of players. In classic edition games, only one palette is used to draw images, while player colors are parts of the palette. In both definitive editions, multi palettes can be adopted on different sprite, and palette for player colors are independent from main colors.
 Shadow - Semi-transparent black image. Different levels stands for different opacity, higher is darker. It would darken pixels below in game. In DEs, shadow is also used to smooth borders of main image. When SLP is loaded, the single level will be regarded as level 128.
 Outline - Units covered by buildings or trees in game will show player colored outline, usually shaped by main image. Outline is always only one level.
-Smudge - Addition to normal image when buildings are damaged. The more buildings damaged, the darker it shows. The smudge data is bounded with main image data.
+Smudge - Addition to normal image when buildings are damaged. The more buildings damaged, the darker it shows. The smudge data is bounded with main image data. In SLD, RGB channels can make image darken in unit's light, medium and heavy damage.
 There are also two edit modes named SLP and SMX. Similar with same named format, combined data in one layer or separated.
+When SLD is open, it is in RGB 555 palette (each of three channels is in 32 levels) and old AOE2: DE player color. Player color is determined by density and base color. If you want to use them in other versions, please remember to convert palette. Besides, because of there is no "memo" data in SLD, its memo will be like "Alpha=255,Layer=1", you can change numbers, which represents to image opacity(0 to 255) and image layer(0 is terrain, 1 is standing). Since one update in DE, image layerts are no longer determined by DAT, but by themselves instead. Each frame can be in different layers, but usually uniform, as there designed.
 
 Import/Export Images
 ====================================================
@@ -31,6 +34,7 @@ In general modes, pixels whose alpha channel values less than 255 may be convert
 When mode is "distinct by alpha", not only main image and shadow are combined, but also they'll set alpha channel in different way: Player color is 255, normal color is 192 to 254, the other shadow. Otherwise, both player color and normal color is of 255 alpha channel value.
 And you can combine multi exported frames to one picture, or divide one in import. That makes fewer files and more convenient to edit. When numbers of rows and columns are assigned, import or export images will be regarded as strips, grid size equals to maximum size of frames. For example, if you export a sprite with 160 frames by 8-by-8, it will create 3 image files. The third image is still 8-by-8, but has only 32 frames, half of the image is blank.
 There are three anchor modes in the tool. If you choose "Tight, unaligned", all frames will ignore anchor location(but not for interior datas in each frame), they stay at left-top corner of grids. Align makes frames algined by anchor points among grids. If you choose "Align, centered", frames will also put their anchor points at centers of grids, this is what default import mode does too. Images are larger from first to third modes, but more anchor information is saved in image files. You can save anchor information as CSV files when export, or load them in import. Names of anchor files are corresponding ones with .CSV postfix, so they have double extension names.
+You can save partial or all frames as a GIF. Result like image data, playe color and frame rate depends on current view set, so you should set them before saving.
 
 Palettes
 ====================================================

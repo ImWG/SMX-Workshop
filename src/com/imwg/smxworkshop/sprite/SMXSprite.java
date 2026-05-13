@@ -3,7 +3,7 @@ package com.imwg.smxworkshop.sprite;
 
 public class SMXSprite extends Sprite{
 	
-	static private final int PLAYER_COLOR_START = 16384;
+	static private final int PLAYER_COLOR_START = -16384;
 	
 	public SMXSprite(){
 		super();
@@ -65,10 +65,12 @@ public class SMXSprite extends Sprite{
 			switch(type){
 			case DATA_IMAGE:
 				int value = image[props[0]*y+x];
-				if (value < PLAYER_COLOR_START)
+				if (value >= 0)
 					return value;
+				else if (value <= PLAYER_COLOR_START)
+					return PLAYER_COLOR_START - value + Sprite.PIXEL_PLAYER_START;
 				else
-					return value - PLAYER_COLOR_START + Sprite.PIXEL_PLAYER_START;
+					return PIXEL_NULL;
 			case DATA_SHADOW:
 				byte value1 = shadow[props[4]*y+x]; 
 				if (value1 == 0){
@@ -271,7 +273,7 @@ public class SMXSprite extends Sprite{
 				if (value < Sprite.PIXEL_PLAYER_START)
 					image[props[0]*y+x] = (short) value;
 				else
-					image[props[0]*y+x] = (short) (value - Sprite.PIXEL_PLAYER_START + PLAYER_COLOR_START);
+					image[props[0]*y+x] = (short) (PLAYER_COLOR_START - Sprite.PIXEL_PLAYER_START - value);
 				break;
 			case DATA_SHADOW:
 				if (value == Sprite.PIXEL_NULL)

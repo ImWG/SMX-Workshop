@@ -12,7 +12,7 @@ import com.imwg.smxworkshop.view.ViewConfig;
 final public class Configuration {
 	public static final String configName = "config.properties";
 	public static final String gitHubPath = "https://github.com/ImWG/SMX-Workshop.git";
-	public static final String VERSION = "1.8.2 Beta";
+	public static final String VERSION = "1.9.3 Beta";
 	public static final int RECENT_FILE_COUNT = 10;
 	
 	static private Properties properties;
@@ -121,8 +121,9 @@ final public class Configuration {
 		properties.setProperty("anchorSize", Integer.toString(anchorSize));
 		properties.setProperty("defaultMemo", Boolean.toString(defaultMemo));
 		
-		for (int i = 0; i < recentFiles.size(); ++i)
-			properties.setProperty("recentFile" + i, recentFiles.get(i));
+		int n = recentFiles.size();
+		for (int i = 0; i < RECENT_FILE_COUNT; ++i)
+			properties.setProperty("recentFile" + i, recentFiles.get(n - RECENT_FILE_COUNT + i));
 		for (int i = recentFiles.size(); i < RECENT_FILE_COUNT; ++i)
 			properties.setProperty("recentFile" + i, "");
 		

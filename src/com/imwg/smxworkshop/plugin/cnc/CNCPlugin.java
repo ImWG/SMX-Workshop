@@ -20,6 +20,7 @@ import com.imwg.smxworkshop.sprite.SMXSprite;
 import com.imwg.smxworkshop.sprite.Sprite;
 import com.imwg.smxworkshop.sprite.SpriteIO;
 import com.imwg.smxworkshop.view.MainFrame;
+import com.imwg.smxworkshop.view.ViewConfig;
 
 public class CNCPlugin extends Plugin{
 	
@@ -141,6 +142,13 @@ public class CNCPlugin extends Plugin{
 					is = new FileInputStream(f);
 					int length = (int) (f.length() / 3);
 					int[] colors = new int[length];
+					
+					boolean removePlayerColor = JOptionPane.showConfirmDialog(mainFrame,
+							"Remove player colors(#16 ~ #31)?",
+							"Import Palette",
+							JOptionPane.YES_NO_OPTION,
+							JOptionPane.INFORMATION_MESSAGE) == JOptionPane.YES_OPTION;	
+					
 					for (int i = 0; i < length; ++i){
 						int color = 0;
 						for (int j = 0; j < 3; ++j){
@@ -149,8 +157,28 @@ public class CNCPlugin extends Plugin{
 						}
 						colors[i] = color;
 					}
+					colors[0] = 0; // Skip #0(transparent) and #1(shadow)
+					colors[1] = 0;
+					if (removePlayerColor) {
+						for (int i = 16; i < 32; ++i){
+							colors[i] = 0;
+						}
+					}
 					Palette pal = new Palette(colors);
-					pal.saveAsFile(f.getName() + "!.pal", null);//TODO
+					String path;
+					String fname = "cnc_" + f.getName().replaceFirst("\\..+?$", "");
+					if (removePlayerColor) {
+						fname += "_noplayer";
+					}
+					for (int id = 0; ; ++id) {
+						String index = id == 0 ? "" : " (" + id + ")";
+						path = "palettes/custom/" + fname + index + ".pal";
+						File file = new File(path);
+						if (!file.exists()) {
+							break;	
+						}
+					}
+					pal.saveAsFile(path, null);//TODO
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -305,27 +333,27 @@ public class CNCPlugin extends Plugin{
 			int originalPaletteSize = originalPalette.getColorCount();
 			int targetPaletteSize = Math.min(originalPaletteSize, 256);
 			int[] mapping = new int[originalPaletteSize];
-			if (playerMode){
-				Palette palette = Palette.merge(
-						new Palette(originalPalette, 1, 15),
-						new Palette(originalPalette, 32, targetPaletteSize - 32));
-				for (int i = 0; i < targetPaletteSize; ++i){
-					if (i == 0 || i >= 16 && i < 32){
-						int mapid = palette.mapping(originalPalette.getColor(i)) + 1;
-						if (mapid >= 16)
-							mapid += 16;
-						mapping[i] = mapid;
-					}else{
-						mapping[i] = i;
-					}
-				}
-			}else{
+//			if (playerMode){
+//				Palette palette = Palette.merge(
+//						new Palette(originalPalette, 1, 15),
+//						new Palette(originalPalette, 32, targetPaletteSize - 32));
+//				for (int i = 0; i < targetPaletteSize; ++i){
+//					if (i == 0 || i >= 16 && i < 32){
+//						int mapid = palette.mapping(originalPalette.getColor(i)) + 1;
+//						if (mapid >= 16)
+//							mapid += 16;
+//						mapping[i] = mapid;
+//					}else{
+//						mapping[i] = i;
+//					}
+//				}
+//			}else{
 				Palette palette = new Palette(originalPalette, 1, targetPaletteSize - 1);
 				mapping[0] = palette.mapping(originalPalette.getColor(0)) + 1;
 				for (int i = 1; i < targetPaletteSize; ++i){
 					mapping[i] = i;
 				}
-			}
+//			}
 			mappings[paletteId] = mapping; 
 		}
 		

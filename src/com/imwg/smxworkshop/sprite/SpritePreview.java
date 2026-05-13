@@ -44,6 +44,7 @@ public class SpritePreview {
 		Sprite.Frame frame = sprite.getFrame(index);
 		Palette pal = Palette.getPalette(frame.getPalette());
 		Palette ppal = Palette.getPlayerPalette(sprite.playerMode, playerColorId);
+		Palette spal = Palette.getPalette(512);
 
 		// Draw Normal
 		if (frame.getWidth(Sprite.DATA_IMAGE) > 0 && frame.getHeight(Sprite.DATA_IMAGE) > 0){
@@ -110,8 +111,7 @@ public class SpritePreview {
 				for (int j=0; j<frame.getWidth(Sprite.DATA_SMUDGE); ++j){
 					int pixel = frame.getPixel(Sprite.DATA_SMUDGE, j, i);
 					if (pixel != Sprite.PIXEL_NULL){
-						pixel = (pixel >> 2) & 0xff;
-						im.setRGB(j, i, pixel << 24);
+						im.setRGB(j, i, spal.getColor(pixel));
 					}
 				}
 			}
@@ -151,15 +151,18 @@ public class SpritePreview {
 	static public void loadPaletteImages(){
 		paletteImages = new BufferedImage[Palette.ORIGINAL_PALETTE_COUNT + Palette.getCustomPaletteCount()];
 		for (int i=0; i<paletteImages.length; ++i){
-			if (Palette.getPalette(i) != null){
-				int[] rgbs = Palette.getPalette(i).rgbs;
+			Palette palette = Palette.getPalette(i);
+			if (palette != null){
+				int count = palette.getColorCount();
 				int size = 32;
-				if (rgbs.length <= 256){
+				if (count <= 256){
 					size = 16;
+				}else if (count > 1024) {
+					size = 256;
 				}
 				BufferedImage paletteImage = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
-				for (int j=0; j<rgbs.length; ++j){
-					paletteImage.setRGB(j % size, j / size, rgbs[j]);
+				for (int j=0; j<count; ++j){
+					paletteImage.setRGB(j % size, j / size, palette.getColor(j));
 				}
 				paletteImages[i] = paletteImage;
 			}

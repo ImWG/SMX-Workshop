@@ -4,6 +4,7 @@ import java.awt.Canvas;
 import java.awt.Checkbox;
 import java.awt.Choice;
 import java.awt.Graphics;
+import java.awt.Label;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.util.HashMap;
@@ -29,7 +30,8 @@ public class ImportImagesDialog extends PropDialog {
 	private Canvas paletteCanvas;
 	private Checkbox hsvModeCheckbox;
 	private NumberField rowsText, columnsText, minimumNormalAlphaText;
-	private Checkbox outlineCheckbox, smudgeCheckbox, csvCheckbox;
+	private Checkbox outlineCheckbox, smudgeCheckbox, csvCheckbox, monoSmudgeCheckbox;
+	private Label sizeLabel;
 		
 	private int[] palettes;
 	
@@ -109,6 +111,7 @@ public class ImportImagesDialog extends PropDialog {
 		outlineCheckbox = this.addCheckbox("Checkbox.outline");
 		smudgeCheckbox = this.addCheckbox("Checkbox.smudge");
 		csvCheckbox = this.addCheckbox("Checkbox.csv");
+		monoSmudgeCheckbox = this.addCheckbox("Checkbox.monoSmudge");
 		
 		imageModeList = this.addChoice("List.imageMode");
 		
@@ -122,7 +125,7 @@ public class ImportImagesDialog extends PropDialog {
 		};
 		this.add(paletteCanvas, "Canvas.palette");
 		
-		this.addLabel("Label.size");
+		sizeLabel = this.addLabel("Label.size");
 		
 		// SET VALUES		
 		playerPaletteList.select(settings.get("playerPalette"));
@@ -139,10 +142,12 @@ public class ImportImagesDialog extends PropDialog {
 		columnsText.setRange(1, null);
 		minimumNormalAlphaText.setText(settings.get("minimumNormalAlpha"));
 		minimumNormalAlphaText.setRange(0, 255);
+		minimumNormalAlphaText.setVisible(false);
 		
 		int imageMode = settings.get("imageMode");
 		outlineCheckbox.setState((imageMode & SpriteIO.IMAGE_MODE_OUTLINE_MASK) != 0);
 		smudgeCheckbox.setState((imageMode & SpriteIO.IMAGE_MODE_SMUDGE_MASK) != 0);
+		monoSmudgeCheckbox.setState((imageMode & SpriteIO.IMAGE_MODE_MONO_SMUDGE_MASK) != 0);
 		imageMode &= SpriteIO.IMAGE_MODE_MASK | SpriteIO.IMAGE_MODE_BACKGROUND_MASK;
 		for (int i=0; i<ExportImagesDialog.IMAGE_MODES.length; ++i){
 			if (ExportImagesDialog.IMAGE_MODES[i] == imageMode){
@@ -188,9 +193,38 @@ public class ImportImagesDialog extends PropDialog {
 			imageMode |= SpriteIO.IMAGE_MODE_OUTLINE_MASK;
 		if (smudgeCheckbox.getState())
 			imageMode |= SpriteIO.IMAGE_MODE_SMUDGE_MASK;
+		if (monoSmudgeCheckbox.getState())
+			imageMode |= SpriteIO.IMAGE_MODE_MONO_SMUDGE_MASK;
 		
 		settings.put("imageMode", imageMode);
 
+	}
+	
+	public void setViewingPalette(int palette) {
+		playerModeList.setVisible(false);
+		imageModeList.setVisible(false);
+		playerPaletteList.setVisible(false);
+		cutOpaqueText.setVisible(false);
+		playerText.setVisible(false);
+		autoCropCheckbox.setVisible(false);
+		hsvModeCheckbox.setVisible(false);
+		rowsText.setVisible(false);
+		columnsText.setVisible(false);
+		minimumNormalAlphaText.setVisible(false);
+		outlineCheckbox.setVisible(false);
+		smudgeCheckbox.setVisible(false);
+		csvCheckbox.setVisible(false);
+		monoSmudgeCheckbox.setVisible(false);
+		sizeLabel.setVisible(false);
+		this.setTitle(ViewConfig.getString("MainMenu.View.Palettes"));
+
+		for (int i=0; i<palettes.length; ++i){
+			if (palettes[i] == palette){
+				paletteList.select(i); break;
+			}
+		}
+		
+	
 	}
 	
 }

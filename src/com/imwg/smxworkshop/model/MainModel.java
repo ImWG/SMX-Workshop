@@ -2,6 +2,7 @@ package com.imwg.smxworkshop.model;
 
 import java.awt.Desktop;
 import java.io.File;
+import java.util.regex.Pattern;
 
 import com.imwg.smxworkshop.sprite.Palette;
 import com.imwg.smxworkshop.sprite.SMXSprite;
@@ -51,7 +52,6 @@ public class MainModel {
 	    	}
 	    }
 	}
-
 	
 	public int saveSprite(Sprite sprite, File file, String format){
 		String name = file.getName(); 
@@ -64,10 +64,23 @@ public class MainModel {
 			SpriteIO.saveSLPSprite(sprite, file.getAbsolutePath());
 			break;
 		case "SMX":	
-		default:
 			SpriteIO.saveSMXSprite(sprite, file.getAbsolutePath());
+			break;
+		case "SLD":
+		default:
+			SpriteIO.saveSLDSprite(sprite, file.getAbsolutePath());
 		}
 		return 1;
+	}
+
+	public void appendSprite(Sprite source, Sprite append){
+		if (source.getPlayerMode() != append.getPlayerMode())
+			setPlayerPalette(append, source.getPlayerMode(), true);
+		for (int i = 0; i < append.getFrameCount(); ++i) {
+			Sprite.Frame aFrame = append.getFrame(i);
+			Sprite.Frame frame = source.createFrame(aFrame);
+			source.insertFrame(source.getFrameCount(), frame);
+		}
 	}
 	
 	public void setComment(Sprite sprite, String comment){
@@ -446,6 +459,8 @@ public class MainModel {
 			int frames, boolean removeSelected) {
 		
 		int framePerAngle = sprite.getFrameCount() / angles;
+		startFrame = Math.min(startFrame, framePerAngle);
+		frames = Math.min(frames, framePerAngle - startFrame);
 		for (int i = angles - 1; i >= 0; --i) {
 			int offset = i * framePerAngle;
 			if (removeSelected) {
@@ -484,6 +499,111 @@ public class MainModel {
 			this.setAnchor(sprite, indices, -1, dx, dy, true);
 		}
 		
+	}
+	
+	static private interface FileProcesser {
+		public void process(File file);
+	}
+	
+	private void processFiles(File[] files, FileProcesser processer) {
+		MainFrame.setProcessString(String.format("Converting files: %d / %d", 0, files.length));
+		int i = 0;
+		for (File file : files) {
+			try {
+				processer.process(file);
+				MainFrame.setProcessString(String.format("Converting files: %d / %d", i, files.length));
+			} catch(Exception e) {
+				e.printStackTrace();
+			}
+			++i;
+		}
+	}
+
+	public void convertToSLPs(File[] files) {
+		processFiles(files, new FileProcesser() {
+			@Override
+			public void process(File file) {
+				String fileName = file.getAbsolutePath();
+				Sprite sprite = SpriteIO.loadFromFile(file);
+				int[] indices = new int[sprite.getFrameCount()];
+				for (int i = 0; i < indices.length; ++i) {
+					indices[i] = i;
+				}
+				setPalette(sprite, indices, 0, true);
+				setPlayerPalette(sprite, Sprite.PLAYER_PALETTE_AOK, true);
+				fileName = fileName.replaceFirst("\\.\\w+", ".slp");
+				SpriteIO.saveSLPSprite(sprite, fileName);
+			}
+		});
+	}
+	
+
+	public void convertToSMXs(File[] files) {
+		processFiles(files, new FileProcesser() {
+			@Override
+			public void process(File file) {
+				String fileName = file.getAbsolutePath();
+				Sprite sprite = SpriteIO.loadFromFile(file);
+				int[] indices = new int[sprite.getFrameCount()];
+				for (int i = 0; i < indices.length; ++i) {
+					indices[i] = i;
+				}
+				setPalette(sprite, indices, 28, true);
+				setPlayerPalette(sprite, Sprite.PLAYER_PALETTE_DE, true);
+				fileName = fileName.replaceFirst("\\.\\w+", ".smx");
+				SpriteIO.saveSMXSprite(sprite, fileName);
+			}
+		});
+	}
+	
+	public void convertToSLDs(File[] files) {
+		processFiles(files, new FileProcesser() {
+			@Override
+			public void process(File file) {
+				String fileName = file.getAbsolutePath();
+				Sprite sprite = SpriteIO.loadFromFile(file);
+				fileName = fileName.replaceFirst("\\.\\w+", ".sld");
+				SpriteIO.saveSLDSprite(sprite, fileName);
+			}
+		});
+	}
+	
+	public void expandSpriteFilesHalf(File[] files) {
+		processFiles(files, new FileProcesser() {
+			@Override
+			public void process(File file) {
+				String fileName = file.getAbsolutePath();
+				Sprite sprite = SpriteIO.loadFromFile(file);
+				FrameFilter filter = new FrameFilter();
+				Palette playerPalette = Palette.getPlayerPalette(sprite.getPlayerMode(), 0);
+				for (Sprite.Frame frame : sprite) {
+					filter.setFrame(frame);
+					Palette palette = Palette.getPalette(frame.getPalette());
+					filter.scale(0.5, 0.5, palette, playerPalette);
+				}
+				fileName = fileName.replaceFirst("(_x2)?(\\.\\w+)$", "_x1$2");
+				MainModel.this.saveSprite(sprite, new File(fileName), "");
+			}
+		});
+	}
+	
+	public void expandSpriteFiles2x(File[] files) {
+		processFiles(files, new FileProcesser() {
+			@Override
+			public void process(File file) {
+				String fileName = file.getAbsolutePath();
+				Sprite sprite = SpriteIO.loadFromFile(file);
+				FrameFilter filter = new FrameFilter();
+				Palette playerPalette = Palette.getPlayerPalette(sprite.getPlayerMode(), 0);
+				for (Sprite.Frame frame : sprite) {
+					filter.setFrame(frame);
+					Palette palette = Palette.getPalette(frame.getPalette());
+					filter.scale(2, 2, palette, playerPalette);
+				}
+				fileName = fileName.replaceFirst("(_x1)?(\\.\\w+)$", "_x2$2");
+				MainModel.this.saveSprite(sprite, new File(fileName), "");
+			}
+		});
 	}
 	
 }

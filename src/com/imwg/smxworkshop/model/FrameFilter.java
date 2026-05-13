@@ -102,6 +102,30 @@ public class FrameFilter {
 	
 	}
 	
+	public void ditherImage(int mode, int power, int value){
+		int x0 = frame.getAnchorX(mode);
+		int y0 = frame.getAnchorY(mode);
+		
+		for (int i=0; i<frame.getHeight(mode); ++i){
+			for (int j=0; j<frame.getWidth(mode); ++j){
+				if (frame.getPixel(mode, j, i) != Sprite.PIXEL_NULL){
+					if (value <= ditherPattern(j-x0, i-y0, power, value))
+						frame.setPixel(mode, j, i, Sprite.PIXEL_NULL);
+				}
+			}
+		}
+	}
+	public void ditherImageRate(int mode, int power, double rate){
+		int levels;
+		if (power == -2) {
+			levels = 4;
+		}else {
+			levels = 1 << power;
+		}
+		int value = (int) Math.round(rate * levels);
+		ditherImage(mode, power, value);
+	}
+	
 	private int ditherPattern(int i, int j, int power){
 		// Parameter levels is exponent of 2
 		if (power >= 3)
@@ -528,15 +552,19 @@ public class FrameFilter {
 					}
 					
 					// Interpolation
-					double value = 0, wt = 0;
+					double wt = 0;
+					int red = 0, green = 0, blue = 0;
 					for (int i=0; i<4; ++i){
-						if (ps[i] != Sprite.PIXEL_NULL){
-							value += ps[i] * ws[i];
+						if (ps[i] < Sprite.PIXEL_PLAYER_START && ps[i] != Sprite.PIXEL_NULL){
+							int rgb = palette.getColor(ps[i]);
+							red += (rgb >> 16 & 0xff) * ws[i];
+							green += (rgb >> 8 & 0xff) * ws[i];
+							blue += (rgb & 0xff) * ws[i];
 							wt += ws[i];
 						}
-					}					
-					frame.setPixel(Sprite.DATA_SMUDGE, x, y, (int) (value / wt));
- 
+					}
+					frame.setPixel(Sprite.DATA_SMUDGE, x, y, 
+							palette.mapping(red / wt, green / wt, blue / wt));
 				}
 			}
 		}
@@ -547,7 +575,7 @@ public class FrameFilter {
 	public void adjustBrightness(double brightness, double contrast, Palette srcPal, Palette dstPal,
 			boolean player){
 		
-		Palette mapPal = new Palette(srcPal);
+		Palette mapPal = new Palette(srcPal.getColorCount());
 		for (int i = 0; i < srcPal.getColorCount(); ++i){
 			mapPal.setColor(i, adjustColorBrightness(srcPal.getColor(i), brightness, contrast));
 		}
@@ -556,8 +584,8 @@ public class FrameFilter {
 	
 	public void adjustHue(double hue, double saturation, double value, boolean tint,
 			Palette srcPal, Palette dstPal, boolean player){
-		
-		Palette mapPal = new Palette(srcPal);
+
+		Palette mapPal = new Palette(srcPal.getColorCount());
 		for (int i = 0; i < srcPal.getColorCount(); ++i){
 			if (tint)
 				mapPal.setColor(i, adjustColorTint(srcPal.getColor(i), hue, saturation, value));
@@ -618,6 +646,62 @@ public class FrameFilter {
 		hsvs[2] = Math.min(1, Math.max(0, hsvs[2] + (float)value));
 		
 		return Color.HSBtoRGB(hsvs[0], hsvs[1], hsvs[2]) | color.getAlpha() << 24;
+	}
+	
+	public void blurShadow(int radius){
+		int width = frame.getWidth(Sprite.DATA_SHADOW);
+		int height = frame.getWidth(Sprite.DATA_SHADOW);
+		if (width > 0) {
+			int anchorX = frame.getAnchorX(Sprite.DATA_SHADOW);
+			int anchorY = frame.getAnchorY(Sprite.DATA_SHADOW);
+			int semi = (radius + 1) / 2;
+			frame.expand(
+				Sprite.DATA_SHADOW,
+				anchorX + radius, anchorY + semi,
+				width - anchorX + radius, height - anchorY + semi
+			);
+			int xWidth = width + radius * 2, xHeight = height + semi * 2;
+			int ix0 = -frame.getAnchorX(Sprite.DATA_IMAGE);
+			int iy0 = -frame.getAnchorY(Sprite.DATA_IMAGE);
+			int ix1 = frame.getWidth(Sprite.DATA_IMAGE) + ix0;
+			int iy1 = frame.getHeight(Sprite.DATA_IMAGE) + iy0;
+			int dx = -(anchorX + radius);
+			int dy = -(anchorY + semi);
+			int[] data = new int[xWidth * xHeight];
+			for (int x = 0; x < xWidth; ++x) {
+				for (int y = 0; y < xHeight; ++y) {
+					int x0 = Math.max(0, x - radius), y0 = Math.max(0, y - semi);
+					int x1 = Math.min(xWidth - 1, x + radius), y1 = Math.min(xHeight - 1, y + semi);
+					int xii = x + dx, yii = y + dy;
+					if (xii >= ix0 && xii < ix1 && yii >= iy0 && yii < iy1) {
+						if (frame.getPixel(Sprite.DATA_IMAGE, xii - ix0, yii - iy0) != Sprite.PIXEL_NULL) {
+							continue;
+						}
+					}
+					int w = 0, v = 0;
+					for (int xi = x0; xi <= x1; ++xi) {
+						for (int yi = y0; yi <= y1; ++yi) {
+							xii = xi + dx; yii = yi + dy;
+							if (xii >= ix0 && xii < ix1 && yii >= iy0 && yii < iy1) {
+								if (frame.getPixel(Sprite.DATA_IMAGE, xii - ix0, yii - iy0) != Sprite.PIXEL_NULL) {
+									continue;
+								}
+							}
+							++w;
+							v += frame.getPixel(Sprite.DATA_SHADOW, xi, yi);
+						}
+					}
+					if (w > 0) {
+						data[x + y * xWidth] = v / w;
+					}
+				}
+			}
+			for (int x = 0; x < xWidth; ++x) {
+				for (int y = 0; y < xHeight; ++y) {
+					frame.setPixel(Sprite.DATA_SHADOW, x, y, data[x + y * xWidth]);
+				}
+			}
+		}
 	}
 	
 }

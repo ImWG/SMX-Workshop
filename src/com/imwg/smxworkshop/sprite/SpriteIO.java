@@ -6,6 +6,7 @@ import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -16,6 +17,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.imageio.ImageIO;
 
@@ -37,6 +40,7 @@ final public class SpriteIO {
 	public static final int IMAGE_MODE_OUTLINE_MASK = 0x10;
 	public static final int IMAGE_MODE_SMUDGE_MASK = 0x20;
 	public static final int IMAGE_MODE_BACKGROUND_MASK = 0x100;
+	public static final int IMAGE_MODE_MONO_SMUDGE_MASK = 0x200;
 	
 	public static final int GIF_MODE_NEITHER = 0;
 	public static final int GIF_MODE_NORMAL = 1;
@@ -72,6 +76,8 @@ final public class SpriteIO {
 					sprite = loadFromSMP(fis);
 				}else if (header.equals("4.0X")){
 					sprite = loadFromDESLP(fis);
+				}else if (header.equals("SLDX")){
+					sprite = loadFromSLD(fis);
 				}
 			}catch(NullPointerException | ArrayIndexOutOfBoundsException | NegativeArraySizeException e){
 				e.printStackTrace();
@@ -193,6 +199,7 @@ final public class SpriteIO {
 							frame.setAnchor(Sprite.DATA_SMUDGE, anchorx, anchory);
 							int x, y = 0;
 							int start, offset = 0, offset1 = 0, offset2 = 2;
+							Palette smudgePalette = Palette.getPalette(512);
 							x = borders[y*2];
 							do{
 								if (x < 0){
@@ -218,8 +225,9 @@ final public class SpriteIO {
 											if (++offset1 == offset2){
 												offset1 += 3; offset2 += 5; 
 											}
+											svalue = svalue * 85 / 1023; // 255 / 3 = 85
 											frame.setPixel(Sprite.DATA_IMAGE, x, y, pvalue);
-											frame.setPixel(Sprite.DATA_SMUDGE, x++, y, svalue);
+											frame.setPixel(Sprite.DATA_SMUDGE, x++, y, smudgePalette.mapping(svalue, svalue, svalue));
 										}
 										break;
 									case 2:
@@ -236,8 +244,9 @@ final public class SpriteIO {
 											if (++offset1 == offset2){
 												offset1 += 3; offset2 += 5; 
 											}
+											svalue = svalue * 85 / 1023;
 											frame.setPixel(Sprite.DATA_IMAGE, x, y, pvalue + Sprite.PIXEL_PLAYER_START);
-											frame.setPixel(Sprite.DATA_SMUDGE, x++, y, svalue);
+											frame.setPixel(Sprite.DATA_SMUDGE, x++, y, smudgePalette.mapping(svalue, svalue, svalue));
 										}
 										break;
 									case 3:
@@ -348,7 +357,7 @@ final public class SpriteIO {
 			fis.skip(4);
 			
 			frame.create(readInteger(fis, 4), readInteger(fis, 4));
-			frame.setAnchor(Sprite.DATA_IMAGE, readInteger(fis, 4), readInteger(fis, 4));
+			frame.setAnchor(Sprite.DATA_IMAGE, (short)readInteger(fis, 4), (short)readInteger(fis, 4));
 			sprite.frames.add(index, frame);
 		}
 		
@@ -370,7 +379,10 @@ final public class SpriteIO {
 			
 			for (int y=0; y<h; ++y){
 				int x = borders[y*2];
-				//if (x <= 0)	continue;
+				if (x < 0)	{
+					fis.skip(1);
+					continue;
+				}
 				
 				int start = readInteger(fis, 1, false);
 				while(true){
@@ -787,7 +799,7 @@ final public class SpriteIO {
 						}else if ((bytl & 0x3) == 0x1){ // Short blank
 							x += (start & 0xff) >> 2;
 							
-						}else if (bytl == 2){ // Large pixels
+						}else if (bytl == 2){ // Long pixels
 							len = (byth << 4) + readInteger(tis, 1, false);
 							byte[] bytet = new byte[len];
 							tis.read(bytet);
@@ -796,7 +808,7 @@ final public class SpriteIO {
 										getAOEDEShadowDepth(bytet[j] & 0xff));
 							}
 	
-						}else if (bytl == 3){ // Large blank
+						}else if (bytl == 3){ // Long blank
 							len = (byth << 4) + readInteger(tis, 1, false);
 							x += len;
 	
@@ -828,6 +840,590 @@ final public class SpriteIO {
 		return sprite;
 	}
 
+	
+	static private SMXSprite loadFromSLD(InputStream fis)
+			throws IOException, NullPointerException, ArrayIndexOutOfBoundsException, NegativeArraySizeException{
+		SMXSprite sprite = new SMXSprite();
+		
+		// Header
+		readInteger(fis, 2); // Version
+		final int frameCount = readInteger(fis, 2);
+		@SuppressWarnings("unused")
+		int unknown1 = readInteger(fis, 4);
+		int opacity = readInteger(fis, 4);
+		sprite.playerMode = Sprite.PLAYER_PALETTE_DE;
+		
+		Palette pal = Palette.getPalette(512);
+		pal.setCacheMode(true);
+		Palette playerPalette = Palette.playerOriginalPalette;
+		playerPalette.setCacheMode(true);
+		
+		Sprite.Frame tempFrame = null, nextTempFrame = null;
+		int[] tempNormalData;
+		
+		for (int index=0; index<frameCount; ++index){
+			// int fWidth = readInteger(fis, 2);
+			// int fHeight = readInteger(fis, 2);
+			fis.skip(4);
+			int fAnchorX = readInteger(fis, 2);
+			int fAnchorY = readInteger(fis, 2);
+			short frameType = (short)readInteger(fis, 2);
+			fis.skip(2); // int frameIndex = readInteger(fis, 2);
+			
+			if (index == 0) {
+				int layer = 1;
+				if ((frameType & 0x8000) != 0) {
+					layer = 0;
+				}
+				sprite.memo = String.format("Alpha=%d,Layer=%d", opacity, layer);
+			}
+			
+			SMXSprite.Frame frame = sprite.createFrame();
+			frame.palette = 512;
+			Sprite.Frame previousFrame = sprite.getFrame(index - 1);
+			nextTempFrame = sprite.createFrame();
+			
+			// normal Data
+			boolean normalDataInherited = false;
+			if ((frameType & 0x1) != 0) {
+				byte[] seg = readChunk(fis);
+				InputStream is = new ByteArrayInputStream(seg);
+				int x0 = readInteger(is, 2);
+				int y0 = readInteger(is, 2);
+				int x1 = readInteger(is, 2);
+				int y1 = readInteger(is, 2);
+				byte flags = (byte)readInteger(is, 1);
+				byte unknown = (byte)readInteger(is, 1);
+				normalDataInherited = (flags & 0x80) != 0;
+
+				int dx = x1 - x0, dy = y1 - y0;
+				int anchorX = fAnchorX - x0, anchorY = fAnchorY - y0;
+				frame.expand(Sprite.DATA_IMAGE, 0, 0, dx, dy);
+				frame.setAnchor(Sprite.DATA_IMAGE, anchorX, anchorY);
+				
+				int drawCount = readInteger(is, 2);
+				int[] draws = new int[drawCount * 2];
+				for (int i = 0; i < drawCount; ++i) {
+					draws[i * 2] = readInteger(is, 1, false);
+					draws[i * 2 + 1] = readInteger(is, 1, false);
+				}
+
+				if (drawCount > 0) {
+					int drawIndex = 0, drawNumber = draws[0];
+					boolean draw = false;
+					for (int y = 0; y < dy; y += 4) {
+						for (int x = 0; x < dx; x += 4) {
+							while (--drawNumber < 0) {
+								drawNumber = draws[++drawIndex];
+								draw = drawIndex % 2 != 0;
+							}
+							if (draw) {
+								int[] colors;
+								int colorValue0 = readInteger(is, 2, false);
+								int colorValue1 = readInteger(is, 2, false);
+								int indices = readInteger(is, 4, false);
+								int r0 = (((colorValue0 >> 8) & 0xf8) >> 3) * 0xff / 0x1f,
+									g0 = (((colorValue0 >> 3) & 0xfc) >> 2) * 0xff / 0x3f,
+									b0 = (((colorValue0 << 3) & 0xf8) >> 3) * 0xff / 0x1f;
+								int r1 = (((colorValue1 >> 8) & 0xf8) >> 3) * 0xff / 0x1f,
+									g1 = (((colorValue1 >> 3) & 0xfc) >> 2) * 0xff / 0x3f,
+									b1 = (((colorValue1 << 3) & 0xf8) >> 3) * 0xff / 0x1f;
+
+								int color0 = pal.mapping(r0, g0, b0);
+								int color1 = pal.mapping(r1, g1, b1);
+								if (colorValue0 > colorValue1) {
+									colors = new int[] {
+										color0, color1,
+										pal.mapping((r0 * 2 + r1) / 3, (g0 * 2 + g1) / 3, (b0 * 2 + b1) / 3),
+										pal.mapping((r0 + r1 * 2) / 3, (g0 + g1 * 2) / 3, (b0 + b1 * 2) / 3)
+									};
+								}else{
+									colors = new int[] {
+										color0, color1,
+										pal.mapping((r0 + r1) / 2, (g0 + g1) / 2, (b0 + b1) / 2),
+										Sprite.PIXEL_NULL
+									};
+								}
+								
+								for (int m = 0; m < 4; ++m) {
+									for (int n = 0; n < 4; ++n) {
+										int i = m * 4 + n;
+										int color = colors[indices >> (i * 2) & 0x3];
+										frame.setPixel(Sprite.DATA_IMAGE, x + n, y + m, color);
+									}
+								}
+							}else if (normalDataInherited) { // Not optimized
+								int rx0 = -anchorX + previousFrame.getAnchorX(Sprite.DATA_IMAGE) + x;
+								int ry0 = -anchorY + previousFrame.getAnchorY(Sprite.DATA_IMAGE) + y;
+								int rh = previousFrame.getHeight(Sprite.DATA_IMAGE);
+								int rw = previousFrame.getWidth(Sprite.DATA_IMAGE);
+								for (int m = 0; m < 4; ++m) {
+									int ry = ry0 + m; 
+									if (ry >= 0 && ry < rh) {
+										for (int n = 0; n < 4; ++n) {
+											int rx = rx0 + n; 
+											if (rx >= 0 && rx < rw) {
+												int pixel = tempFrame.getPixel(Sprite.DATA_IMAGE, rx, ry);
+												frame.setPixel(Sprite.DATA_IMAGE, x + n, y + m, pixel);
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				
+				nextTempFrame.create(dx, dy);
+				nextTempFrame.setAnchor(Sprite.DATA_IMAGE, anchorX, anchorY);
+				nextTempFrame.setAnchor(Sprite.DATA_SHADOW, anchorX, anchorY);
+				for (int j = 0; j < dy; ++j) {
+					for (int i = 0; i < dx; ++i) {
+						nextTempFrame.setPixel(Sprite.DATA_IMAGE, i, j, frame.getPixel(Sprite.DATA_IMAGE, i, j));
+					}
+				}
+			}
+			
+			// shadow Data
+			if ((frameType & 0x2) != 0) {
+				byte[] seg = readChunk(fis);
+				InputStream is = new ByteArrayInputStream(seg);
+				int x0 = readInteger(is, 2);
+				int y0 = readInteger(is, 2);
+				int x1 = readInteger(is, 2);
+				int y1 = readInteger(is, 2);
+				byte flags = (byte)readInteger(is, 1);
+				byte unknown = (byte)readInteger(is, 1);
+
+				int dx = x1 - x0, dy = y1 - y0;
+				int anchorX = fAnchorX - x0, anchorY = fAnchorY - y0;
+				frame.expand(Sprite.DATA_SHADOW, 0, 0, dx, dy);
+				frame.setAnchor(Sprite.DATA_SHADOW, anchorX, anchorY);
+				
+				int drawCount = readInteger(is, 2);
+				int[] draws = new int[drawCount * 2 + 2];
+				for (int i = 0; i < drawCount; ++i) {
+					draws[i * 2] = readInteger(is, 1, false);
+					draws[i * 2 + 1] = readInteger(is, 1, false);
+				}
+
+				int drawIndex = 0, drawNumber = draws[0];
+				boolean draw = false;
+				for (int y = 0; y < dy; y += 4) {
+					for (int x = 0; x < dx; x += 4) {
+						while (--drawNumber < 0) {
+							drawNumber = draws[++drawIndex];
+							draw = drawIndex % 2 != 0;
+						}
+						if (draw) {
+							int[] colors;
+							int color0 = readInteger(is, 1, false);
+							int color1 = readInteger(is, 1, false);
+							int indices0 = readInteger(is, 2, false);
+							int indices1 = readInteger(is, 2, false);
+							int indices2 = readInteger(is, 2, false);
+							long indices = (long)indices0 | ((long)indices1) << 16 | ((long)indices2) << 32;
+							
+							if (color0 > color1) {
+								colors = new int[] {
+									color0, color1,
+									(color0 * 6 + color1) / 7,
+									(color0 * 5 + color1 * 2) / 7,
+									(color0 * 4 + color1 * 3) / 7,
+									(color0 * 3 + color1 * 4) / 7,
+									(color0 * 2 + color1 * 5) / 7,
+									(color0 + color1 * 6) / 7,
+								};
+							}else{
+								colors = new int[] {
+									color0, color1,
+									(color0 * 4 + color1) / 5,
+									(color0 * 3 + color1 * 2) / 5,
+									(color0 * 2 + color1 * 3) / 5,
+									(color0 + color1 * 4) / 5,
+									0,
+									255
+								};
+							}
+							
+							for (int m = 0; m < 4; ++m) {
+								for (int n = 0; n < 4; ++n) {
+									int i = m * 4 + n;
+									int color = colors[(int)(indices >> (i * 3) & 0x7)];
+									frame.setPixel(Sprite.DATA_SHADOW, x + n, y + m, color);
+								}
+							}
+						}else if ((flags & 0x80) != 0) { // Not optimized
+							int rx0 = -anchorX + previousFrame.getAnchorX(Sprite.DATA_SHADOW) + x;
+							int ry0 = -anchorY + previousFrame.getAnchorY(Sprite.DATA_SHADOW) + y;
+							int rh = previousFrame.getHeight(Sprite.DATA_SHADOW);
+							int rw = previousFrame.getWidth(Sprite.DATA_SHADOW);
+							for (int m = 0; m < 4; ++m) {
+								int ry = ry0 + m; 
+								if (ry >= 0 && ry < rh) {
+									for (int n = 0; n < 4; ++n) {
+										int rx = rx0 + n; 
+										if (rx >= 0 && rx < rw) {
+											int pixel = previousFrame.getPixel(Sprite.DATA_SHADOW, rx, ry);
+											frame.setPixel(Sprite.DATA_SHADOW, x + n, y + m, pixel);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+			}
+			
+
+			// mask Data(skipped)
+			if ((frameType & 0x4) != 0) {
+				byte[] seg = readChunk(fis);
+				 if (normalDataInherited) {
+					int width = frame.getWidth(Sprite.DATA_IMAGE);
+					int height = frame.getHeight(Sprite.DATA_IMAGE);
+
+					int rows = height / 4;
+					int start_offset = 2 + rows * 2;
+
+					int[] offsets = new int[rows + 1];
+					for (int p = 0; p < rows; ++p) {
+						int ptr = p * 2 + 2;
+						offsets[p] = ((seg[ptr] & 0xff | (seg[ptr + 1] & 0xff) << 8) + start_offset);
+					}
+					offsets[rows] = seg.length;
+					byte[] seg1 = new byte[seg.length + 1];
+					for (int i = seg.length - 1; i >= 0; --i) {
+						seg1[i] = seg[i];
+					}
+					seg1[seg.length] = -128;
+					seg = seg1;
+
+					int tile = 0;
+					for (int p = 0; p < rows; ++p) {
+						int off0 = offsets[p], off1 = offsets[p + 1];
+						int xOff = 0, yOff = p * 4;
+						int c = seg[off0] & 0xff;
+						if (c < 128) {
+							xOff = c * 4;
+							c = seg[++off0] & 0xff;
+						} 
+						while(c < 128) {
+							if (c > 1) {
+								xOff += c * 4;
+							}
+							c = seg[++off0] & 0xff;
+						};
+						int slen = c - 128;
+						++off0;
+
+						for (int y = 0; y < 4; ++y) {
+							if (y >= height) {
+								break;
+							}
+							for (int x = 0; x < xOff; ++x) {
+								frame.setPixel(Sprite.DATA_IMAGE, x, y + yOff, Sprite.PIXEL_NULL);
+							}
+						}
+						
+						for (; off0 < off1; off0 += 2, slen -= 1) {
+							if (slen <= 0) {
+								int rep = seg[off0] & 0xff;
+								int c1 = seg[++off0] & 0xff;
+								while (c1 < 128) {
+									if (c1 > 1) {
+										rep += c1;
+									}
+									c1 = seg[++off0] & 0xff;
+								}
+								slen = c1 - 128;
+								
+								if (tile != 0) {
+									for (int k = 0; k < rep; ++k) {
+										for (int j = 0; j < 16; ++j) {
+											int x = xOff + (j % 4);
+											if (x < width) {
+												int y = yOff + j / 4;
+												if (y < height && (tile & (1 << j)) == 0) {
+													frame.setPixel(Sprite.DATA_IMAGE, x, y, Sprite.PIXEL_NULL);
+												}
+											}
+										}
+										xOff += 4;
+										if (xOff >= width) {
+											xOff = 0; //yOff += 4;
+										}
+									}
+								}else {
+									for (int k = 0; k < rep; ++k) {
+										for (int j = 0; j < 16; ++j) {
+											int x = xOff + (j % 4);
+											int y = yOff + j / 4;
+											if (y < height) {
+												frame.setPixel(Sprite.DATA_IMAGE, x, y, Sprite.PIXEL_NULL);
+											}
+										}
+										xOff += 4;
+										if (xOff >= width) {
+											xOff = 0; yOff += 4;
+										}
+									}
+								}
+
+								if (++off0 >= off1) {
+									break;
+								}
+							}
+							int x0 = xOff, y0 = yOff;
+							tile = 0;
+							if (off0 < seg.length - 1) {
+								tile = seg[off0] & 0xff | (seg[off0 + 1] & 0xff) << 8;
+							}else if (off0 == seg.length - 1) {
+								tile = seg[off0] & 0xff;
+							}
+							if (tile != 0) {
+								for (int j = 0; j < 16; ++j) {
+									int x = x0 + (j % 4);
+									int y = y0 + j / 4;
+									if (y < height && (tile & (1 << j)) == 0) {
+										frame.setPixel(Sprite.DATA_IMAGE, x, y, Sprite.PIXEL_NULL);
+									}
+								}
+							}else {
+								for (int j = 0; j < 16; ++j) {
+									int x = xOff + (j % 4);
+									int y = yOff + j / 4;
+									if (y < height) {
+										frame.setPixel(Sprite.DATA_IMAGE, x, y, Sprite.PIXEL_NULL);
+									}
+								}
+							}
+							xOff += 4;
+							if (xOff >= width) {
+								xOff = 0; yOff += 400000;
+							}
+						}
+						
+						// if (yOff == p * 4 && xOff < width) {
+						// 	for (int y = yOff; y < height; ++y) {
+						// 		for (int x = xOff; x < Math.min(xOff + 8, width); ++x) {
+						// 			frame.setPixel(Sprite.DATA_IMAGE, x, y, Sprite.PIXEL_NULL);
+						// 		}
+						// 	}
+						// }
+						
+					}
+				 }
+			}
+			
+			// smudge Data - RGB
+			if ((frameType & 0x8) != 0) {
+				byte[] seg = readChunk(fis);
+				
+				InputStream is = new ByteArrayInputStream(seg);
+				byte flags = (byte)readInteger(is, 1);
+				byte unknown = (byte)readInteger(is, 1);
+
+				int dx = frame.getWidth(Sprite.DATA_IMAGE);
+				int dy = frame.getHeight(Sprite.DATA_IMAGE);
+				int anchorX = frame.getAnchorX(Sprite.DATA_IMAGE);
+				int anchorY = frame.getAnchorY(Sprite.DATA_IMAGE);
+				frame.expand(Sprite.DATA_SMUDGE, 0, 0, dx, dy);
+				frame.setAnchor(Sprite.DATA_SMUDGE, anchorX, anchorY);
+				
+				
+				int drawCount = readInteger(is, 2);
+				int[] draws = new int[drawCount * 2];
+				for (int i = 0; i < drawCount; ++i) {
+					draws[i * 2] = readInteger(is, 1, false);
+					draws[i * 2 + 1] = readInteger(is, 1, false);
+				}
+
+				int drawIndex = 0, drawNumber = draws[0];
+				boolean draw = false;
+				for (int y = 0; y < dy; y += 4) {
+					for (int x = 0; x < dx; x += 4) {
+						while (--drawNumber < 0) {
+							drawNumber = draws[++drawIndex];
+							draw = drawIndex % 2 != 0;
+						}
+						if (draw) {
+							int[] colors;
+							int colorValue0 = readInteger(is, 2, false);
+							int colorValue1 = readInteger(is, 2, false);
+							int indices = readInteger(is, 4, false);
+							int r0 = (((colorValue0 >> 8) & 0xf8) >> 3) * 0xff / 0x1f,
+								g0 = (((colorValue0 >> 3) & 0xfc) >> 2) * 0xff / 0x3f,
+								b0 = (((colorValue0 << 3) & 0xf8) >> 3) * 0xff / 0x1f;
+							int r1 = (((colorValue1 >> 8) & 0xf8) >> 3) * 0xff / 0x1f,
+								g1 = (((colorValue1 >> 3) & 0xfc) >> 2) * 0xff / 0x3f,
+								b1 = (((colorValue1 << 3) & 0xf8) >> 3) * 0xff / 0x1f;
+
+							int color0 = pal.mapping(r0, g0, b0);
+							int color1 = pal.mapping(r1, g1, b1);
+							
+							if (colorValue0 > colorValue1) {
+								colors = new int[] {
+									color0, color1,
+									pal.mapping((r0 * 2 + r1) / 3, (g0 * 2 + g1) / 3, (b0 * 2 + b1) / 3),
+									pal.mapping((r0 + r1 * 2) / 3, (g0 + g1 * 2) / 3, (b0 + b1 * 2) / 3)
+								};
+							}else{
+								colors = new int[] {
+									color0, color1,
+									pal.mapping((r0 + r1) / 2, (g0 + g1) / 2, (b0 + b1) / 2),
+									Sprite.PIXEL_NULL
+								};
+							}
+							
+							for (int m = 0; m < 4; ++m) {
+								for (int n = 0; n < 4; ++n) {
+									int i = m * 4 + n;
+									int color = colors[indices >> (i * 2) & 0x3];
+									frame.setPixel(Sprite.DATA_SMUDGE, x + n, y + m, color);
+								}
+							}
+						}else if ((flags & 0x80) != 0) { // Not optimized
+							int rx0 = -anchorX + previousFrame.getAnchorX(Sprite.DATA_SMUDGE) + x;
+							int ry0 = -anchorY + previousFrame.getAnchorY(Sprite.DATA_SMUDGE) + y;
+							int rh = previousFrame.getHeight(Sprite.DATA_SMUDGE);
+							int rw = previousFrame.getWidth(Sprite.DATA_SMUDGE);
+							for (int m = 0; m < 4; ++m) {
+								int ry = ry0 + m; 
+								if (ry >= 0 && ry < rh) {
+									for (int n = 0; n < 4; ++n) {
+										int rx = rx0 + n; 
+										if (rx >= 0 && rx < rw) {
+											int pixel = previousFrame.getPixel(Sprite.DATA_SMUDGE, rx, ry);
+											frame.setPixel(Sprite.DATA_SMUDGE, x + n, y + m, pixel);
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			
+			// player Data
+			if ((frameType & 0x10) != 0) {
+				byte[] seg = readChunk(fis);
+				InputStream is = new ByteArrayInputStream(seg);
+				byte flags = (byte)readInteger(is, 1);
+				byte unknown = (byte)readInteger(is, 1);
+
+				int dx = frame.getWidth(Sprite.DATA_IMAGE), dy = frame.getHeight(Sprite.DATA_IMAGE);
+				
+				int drawCount = readInteger(is, 2);
+				int[] draws = new int[drawCount * 2];
+				for (int i = 0; i < drawCount; ++i) {
+					draws[i * 2] = readInteger(is, 1, false);
+					draws[i * 2 + 1] = readInteger(is, 1, false);
+				}
+
+				if (drawCount > 0) {
+
+					int drawIndex = 0, drawNumber = draws[0];
+					boolean draw = false;
+					for (int y = 0; y < dy; y += 4) {
+						for (int x = 0; x < dx; x += 4) {
+							while (--drawNumber < 0) {
+								drawNumber = draws[++drawIndex];
+								draw = drawIndex % 2 != 0;
+							}
+							if (draw) {
+								int[] colors;
+								int color0 = readInteger(is, 1, false);
+								int color1 = readInteger(is, 1, false);
+								int indices0 = readInteger(is, 2, false);
+								int indices1 = readInteger(is, 2, false);
+								int indices2 = readInteger(is, 2, false);
+								long indices = (long)indices0 | ((long)indices1) << 16 | ((long)indices2) << 32;
+								
+								if (color0 > color1) {
+									colors = new int[] {
+										color0, color1,
+										(color0 * 6 + color1) / 7,
+										(color0 * 5 + color1 * 2) / 7,
+										(color0 * 4 + color1 * 3) / 7,
+										(color0 * 3 + color1 * 4) / 7,
+										(color0 * 2 + color1 * 5) / 7,
+										(color0 + color1 * 6) / 7,
+									};
+								}else{
+									colors = new int[] {
+										color0, color1,
+										(color0 * 4 + color1) / 5,
+										(color0 * 3 + color1 * 2) / 5,
+										(color0 * 2 + color1 * 3) / 5,
+										(color0 + color1 * 4) / 5,
+										0,
+										255
+									};
+								}
+								
+								for (int m = 0; m < 4; ++m) {
+									for (int n = 0; n < 4; ++n) {
+										int i = m * 4 + n;
+										int depth = colors[(int)(indices >> (i * 3) & 0x7)];
+										if (depth > 0) {
+											nextTempFrame.setPixel(Sprite.DATA_SHADOW, x + n, y + m, depth);
+											int pixel = frame.getPixel(Sprite.DATA_IMAGE, x + n, y + m);
+											if (pixel >= 0) {
+												// This is HSV in SLD, not HSL
+												frame.setPixel(Sprite.DATA_IMAGE, x + n, y + m,
+														Palette.getDEPlayerPaletteIndex(pal.getColor(pixel), depth)
+														+ Sprite.PIXEL_PLAYER_START);
+											}
+										}
+									}
+								}
+							} else if ((flags & 0x80) != 0) { // Not optimized
+								int rx0 = tempFrame.getAnchorX(Sprite.DATA_IMAGE) - frame.getAnchorX(Sprite.DATA_IMAGE) + x;
+								int ry0 = tempFrame.getAnchorY(Sprite.DATA_IMAGE) - frame.getAnchorY(Sprite.DATA_IMAGE) + y;
+								int rh = tempFrame.getHeight(Sprite.DATA_IMAGE);
+								int rw = tempFrame.getWidth(Sprite.DATA_IMAGE);
+								for (int m = 0; m < 4; ++m) {
+									int ry = ry0 + m; 
+									if (ry >= 0 && ry < rh) {
+										for (int n = 0; n < 4; ++n) {
+											int rx = rx0 + n; 
+											if (rx >= 0 && rx < rw) {
+												int pixel = tempFrame.getPixel(Sprite.DATA_IMAGE, rx, ry);
+												if (pixel >= 0) {
+													int depth = tempFrame.getPixel(Sprite.DATA_SHADOW, rx, ry);
+													if (depth > 0) {
+														frame.setPixel(Sprite.DATA_IMAGE, x + n, y + m,
+																Palette.getDEPlayerPaletteIndex(pal.getColor(pixel), depth)
+																+ Sprite.PIXEL_PLAYER_START);
+														nextTempFrame.setPixel(Sprite.DATA_SHADOW, x + n, y + m, depth);
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			tempFrame = nextTempFrame;
+
+			sprite.frames.add(index, frame);
+			
+			
+			MainFrame.setProcessString(String.format("Loading %d/%d ...", index, frameCount));
+			
+		}
+		pal.setCacheMode(false);
+		playerPalette.setCacheMode(false);
+		
+		return sprite;
+	}
+	
+	
 	
 	/**
 	 * Convert shadow depth version from AOE:DE to common.
@@ -1091,7 +1687,8 @@ final public class SpriteIO {
 						
 						for (int x=left; x<=right;){
 							int pixel = frame.getPixel(Sprite.DATA_IMAGE, x, y);
-							int smudge;
+							int smudgeColor, smudge;
+							Palette smudgePalette = Palette.getPalette(512);
 							int limit = Math.min(right, x + 0x3f);
 							if (pixel == Sprite.PIXEL_NULL){ // Blank
 								int x1 = x + 1;
@@ -1115,7 +1712,8 @@ final public class SpriteIO {
 								
 								for (; length>0; ++x, --length, ++counter){
 									pixel = frame.getPixel(Sprite.DATA_IMAGE, x, y) - Sprite.PIXEL_PLAYER_START;
-									smudge = frame.getPixel(Sprite.DATA_SMUDGE, x, y);
+									smudgeColor = smudgePalette.getColor(frame.getPixel(Sprite.DATA_SMUDGE, x, y));
+									smudge = ((smudgeColor & 0xff) + ((smudgeColor >> 8) & 0xff) + ((smudgeColor >> 16) & 0xff)) * 1023 / 255;
 									if ((counter & 1) == 0){
 										dataImage[offset1] = (byte) (pixel & 0xff);
 										dataImage[offset1+1] = (byte) (pixel >> 8 & 0x3);
@@ -1144,7 +1742,8 @@ final public class SpriteIO {
 								
 								for (; length>0; ++x, --length, ++counter){
 									pixel = frame.getPixel(Sprite.DATA_IMAGE, x, y);
-									smudge = frame.getPixel(Sprite.DATA_SMUDGE, x, y);
+									smudgeColor = smudgePalette.getColor(frame.getPixel(Sprite.DATA_SMUDGE, x, y));
+									smudge = ((smudgeColor & 0xff) + ((smudgeColor >> 8) & 0xff) + ((smudgeColor >> 16) & 0xff)) * 1023 / 255;
 									if ((counter & 1) == 0){
 										dataImage[offset1] = (byte) (pixel & 0xff);
 										dataImage[offset1+1] = (byte) (pixel >> 8 & 0x3);
@@ -1600,12 +2199,712 @@ final public class SpriteIO {
 	}
 	
 	
+	static public boolean saveSLDSprite(Sprite sprite, String fname){
+		int count = sprite.getFrameCount();
+		
+		try {
+			File f = new File(fname);
+			FileOutputStream fos = new FileOutputStream(f);
+			fos.write("SLDX".getBytes()); // Header
+			writeInteger(fos, 4, 2); // Version?
+			writeInteger(fos, count, 2); // Count
+			writeInteger(fos, 1048576, 4); // Unknown
+			
+			int opacity = 255, layer = 1;
+			
+			java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("Alpha=(\\d+),Layer=(\\d+)");
+			if (sprite.memo != null) {
+				java.util.regex.Matcher matcher = pattern.matcher(sprite.memo);
+				if (matcher.find()) {
+					opacity = Integer.parseInt(matcher.group(1));
+					layer = Integer.parseInt(matcher.group(2));
+				}
+			}
+			writeInteger(fos, opacity, 4); // Opacity
+			
+			int[] prevNormal = null, prevShadow = null, prevSmudge = null, prevPlayer = null;
+			for (int fi = 0; fi < count; ++fi){
+				Sprite.Frame frame = sprite.getFrame(fi);
+				int fwidth = frame.getWidth();
+				int fheight = frame.getHeight();
+				int fanchorX = frame.getAnchorX();
+				int fanchorY = frame.getAnchorY();
+				fwidth = (fwidth + 3) >> 2 << 2;
+				fheight = (fheight + 3) >> 2 << 2;
+				
+				writeInteger(fos, fwidth, 2);
+				writeInteger(fos, fheight, 2);
+				writeInteger(fos, fanchorX, 2);
+				writeInteger(fos, fanchorY, 2);
+				
+				int frameType = 1;
+				if (layer == 0) {
+					frameType |= 0x8000;
+				}
+				
+				frame = sprite.createFrame();
+				frame.cloneFrame(sprite.getFrame(fi)); // have changed
+				
+				byte[] normalData = null, shadowData = null, smudgeData = null, playerData = null, maskData = null;
+				
+				if (frame.getWidth(Sprite.DATA_IMAGE) >= 0) { // Seems to be forced
+					frameType |= 0x1;
+					
+					int width = frame.getWidth(Sprite.DATA_IMAGE);
+					int height = frame.getHeight(Sprite.DATA_IMAGE);
+					int anchorX = frame.getAnchorX(Sprite.DATA_IMAGE);
+					int anchorY = frame.getAnchorY(Sprite.DATA_IMAGE);
+					
+					if (fi > 0) {
+						Sprite.Frame prevFrame = sprite.getFrame(fi - 1);
+						if (prevFrame.getAnchorX(Sprite.DATA_IMAGE) != anchorX
+								&& prevFrame.getAnchorY(Sprite.DATA_IMAGE) != anchorY) {
+							prevNormal = null;
+							prevSmudge = null;
+							prevPlayer = null;
+						}
+					}
+
+					int x0 = fanchorX - anchorX, y0 = fanchorY - anchorY;
+					int x1 = x0 + width, y1 = y0 + height;
+					x0 = x0 >> 2 << 2; x1 = (x1 + 3) >> 2 << 2;
+					y0 = y0 >> 2 << 2; y1 = (y1 + 3) >> 2 << 2;
+					width = x1 - x0;  height = y1 - y0;
+					
+					frame.expand(Sprite.DATA_IMAGE, fanchorX - x0, fanchorY - y0, x1 - fanchorX, y1 - fanchorY);
+					Palette palette = Palette.getPalette(frame.palette);
+
+					ByteArrayOutputStream os = new ByteArrayOutputStream();
+					writeInteger(os, x0, 2);
+					writeInteger(os, y0, 2);
+					writeInteger(os, x1, 2);
+					writeInteger(os, y1, 2);
+					
+					int data[] = new int[width * height];
+
+					for (int j = 0; j < height; ++j) {
+						for (int i = 0; i < width; ++i) {
+							int off = j * width + i;
+							int pixel = frame.getPixel(Sprite.DATA_IMAGE, i, j);
+							if (pixel != Sprite.PIXEL_NULL) {
+								if (pixel >= Sprite.PIXEL_PLAYER_START) {
+									data[off] = Palette.getPlayerPaletteOriginal(sprite.playerMode,
+											pixel - Sprite.PIXEL_PLAYER_START);
+								}else {
+									data[off] = palette.getColor(pixel);
+								}
+							}else{
+								data[off] = 0;
+							}
+						}
+					}
+					compileRGB(os, data, width, prevNormal);
+					prevNormal = data;
+					normalData = os.toByteArray();
+					
+					
+					// Mask Data
+					frameType |= 0x4;
+
+					int rows = height >> 2, columns = width >> 2;
+					byte[] segs = new byte[(columns + columns / 64 + 2) * rows * 2];
+					int offset = 0;
+					int[] addrs = new int[rows];
+					for (int p = 0; p < rows; ++p) {
+						addrs[p] = offset;
+						
+						int yt = p * 4;
+						int[] subseg = new int[128];
+						int subi = 0;
+						int rep = 0;
+						int lastTile = 0;
+						
+						for (int i = 0; i < columns; ++i) {
+							int tile = 0;
+							int xt = i * 4;
+							for (int j = 0; j < 16; ++j) {
+								int x = xt + j % 4, y = yt + j / 4;
+								int c = data[x + y * width];
+								if (c != 0) {
+									tile |= 1 << j;
+								}
+							}
+							if (tile == lastTile) {
+								if  (subi > 0) {
+									segs[offset++] = (byte) (subi + 128);
+									for (int j = 0; j < subi; ++j) {
+										int tile1 = subseg[j];
+										segs[offset++] = (byte) (tile1 & 0xff);
+										segs[offset++] = (byte) (tile1 >> 8);
+									}
+									subi = 0;
+								}
+								++rep;
+							}else {
+								if (rep > 0) {
+									while(rep > 128) {
+										segs[offset++] = 127;
+										rep -= 127;
+									}
+									if (rep == 128) {
+										segs[offset++] = 126;
+										segs[offset++] = 2;
+									}else {
+										segs[offset++] = (byte) rep;
+									}
+									rep = 0;
+								}
+								subseg[subi++] = tile;
+								if  (subi >= 127) {
+									segs[offset++] = (byte) (subi + 128);
+									for (int j = 0; j < subi; ++j) {
+										int tile1 = subseg[j];
+										segs[offset++] = (byte) (tile1 & 0xff);
+										segs[offset++] = (byte) (tile1 >> 8);
+									}
+									subi = 0;
+								}
+							}
+							
+							lastTile = tile;
+						}
+						if  (subi > 0) {
+							segs[offset++] = (byte) (subi + 128);
+							for (int j = 0; j < subi; ++j) {
+								int tile1 = subseg[j];
+								segs[offset++] = (byte) (tile1 & 0xff);
+								segs[offset++] = (byte) (tile1 >> 8);
+							}
+							subi = 0;
+						}else if (rep > 0) {
+							while(rep > 128) {
+								segs[offset++] = 127;
+								rep -= 127;
+							}
+							if (rep == 128) {
+								segs[offset++] = 126;
+								segs[offset++] = 2;
+							}else {
+								segs[offset++] = (byte) rep;
+							}
+							rep = 0;
+						}
+						
+					}
+					
+					os = new ByteArrayOutputStream();
+					writeInteger(os, 5, 2);
+					for (int i = 0; i < rows; ++i) {
+						writeInteger(os, addrs[i], 2);
+					}
+					os.write(segs, 0, offset);
+					
+					maskData = os.toByteArray();
+					
+				}else {
+					prevNormal = null;
+					prevSmudge = null;
+					prevPlayer = null;
+				}
+				
+
+				if (frame.getWidth(Sprite.DATA_SHADOW) > 0) { // Shadow Data
+					frameType |= 0x2;
+					
+					int width = frame.getWidth(Sprite.DATA_SHADOW);
+					int height = frame.getHeight(Sprite.DATA_SHADOW);
+					int anchorX = frame.getAnchorX(Sprite.DATA_SHADOW);
+					int anchorY = frame.getAnchorY(Sprite.DATA_SHADOW);
+					
+					if (fi > 0) {
+						Sprite.Frame prevFrame = sprite.getFrame(fi - 1);
+						if (prevFrame.getAnchorX(Sprite.DATA_SHADOW) != anchorX
+								&& prevFrame.getAnchorY(Sprite.DATA_SHADOW) != anchorY) {
+							prevShadow = null;
+						}
+					}
+
+					int x0 = fanchorX - anchorX, y0 = fanchorY - anchorY;
+					int x1 = x0 + width, y1 = y0 + height;
+					x0 = x0 >> 2 << 2; x1 = (x1 + 3) >> 2 << 2;
+					y0 = y0 >> 2 << 2; y1 = (y1 + 3) >> 2 << 2;
+					width = x1 - x0;  height = y1 - y0;
+					int rows = height >> 2, columns = width >> 2;
+					
+					frame.expand(Sprite.DATA_SHADOW, fanchorX - x0, fanchorY - y0, x1 - fanchorX, y1 - fanchorY);
+
+					ByteArrayOutputStream os = new ByteArrayOutputStream();
+					writeInteger(os, x0, 2);
+					writeInteger(os, y0, 2);
+					writeInteger(os, x1, 2);
+					writeInteger(os, y1, 2);
+
+					int data[] = new int[width * height];
+
+					for (int j = 0; j < height; ++j) {
+						for (int i = 0; i < width; ++i) {
+							int off = j * width + i;
+							data[off] = frame.getPixel(Sprite.DATA_SHADOW, i, j);
+						}
+					}
+					compileMono(os, data, width, prevShadow);
+					prevShadow = data;
+			
+					shadowData = os.toByteArray();
+					
+				}else {
+					prevShadow = null;
+					// Lower Layer must have this
+					if (layer == 0) {
+						frameType |= 0x2;
+						ByteArrayOutputStream os = new ByteArrayOutputStream();
+						writeInteger(os, fanchorX, 2);
+						writeInteger(os, fanchorY, 2);
+						writeInteger(os, fanchorX, 2);
+						writeInteger(os, fanchorY, 2);
+						compileMono(os, new int[0], 0, null);
+						shadowData = os.toByteArray();
+					}
+				}
+				
+				
+				if (frame.getWidth(Sprite.DATA_SMUDGE) > 0) { // Smudge Color
+					frameType |= 0x8;
+
+					int width = frame.getWidth(Sprite.DATA_SMUDGE);
+					int height = frame.getHeight(Sprite.DATA_SMUDGE);
+					int anchorX = frame.getAnchorX(Sprite.DATA_SMUDGE);
+					int anchorY = frame.getAnchorY(Sprite.DATA_SMUDGE);
+
+					int x0 = fanchorX - anchorX, y0 = fanchorY - anchorY;
+					int x1 = x0 + width, y1 = y0 + height;
+					x0 = x0 >> 2 << 2; x1 = (x1 + 3) >> 2 << 2;
+					y0 = y0 >> 2 << 2; y1 = (y1 + 3) >> 2 << 2;
+					width = x1 - x0;  height = y1 - y0;
+					
+					frame.expand(Sprite.DATA_SMUDGE, fanchorX - x0, fanchorY - y0, x1 - fanchorX, y1 - fanchorY);
+					
+					ByteArrayOutputStream os = new ByteArrayOutputStream();
+					
+					int[] data = new int[width * height];
+					Palette palette = Palette.getPalette(512);
+					for (int j = 0; j < height; ++j) {
+						for (int i = 0; i < width; ++i) {
+							int off = j * width + i;
+							int pixel = frame.getPixel(Sprite.DATA_SMUDGE, i, j);
+							if (frame.getPixel(Sprite.DATA_IMAGE, i, j) != Sprite.PIXEL_NULL) {
+								data[off] = palette.getColor(pixel);
+							}else{
+								data[off] = 0;
+							}
+						}
+					}
+					compileRGB(os, data, width, prevSmudge);
+					prevSmudge = data;
+			
+					smudgeData = os.toByteArray();
+					
+				}else {
+					prevSmudge = null;
+				}
+
+				if (frame.getWidth(Sprite.DATA_IMAGE) >= 0) { // Player Color
+					frameType |= 0x10;
+
+					int width = frame.getWidth(Sprite.DATA_IMAGE);
+					int height = frame.getHeight(Sprite.DATA_IMAGE);
+
+					int data[] = new int[width * height];
+					for (int j = 0; j < height; ++j) {
+						for (int i = 0; i < width; ++i) {
+							int off = j * width + i;
+							int bright = frame.getPixel(Sprite.DATA_IMAGE, i, j);
+							if (bright >= Sprite.PIXEL_PLAYER_START) {
+								data[off] = Palette.getPlayerPaletteDepth(
+										sprite.playerMode, bright - Sprite.PIXEL_PLAYER_START);
+							}else{
+								data[off] = 0;
+							}
+						}
+					}
+					ByteArrayOutputStream os = new ByteArrayOutputStream();
+					compileMono(os, data, width, prevPlayer);
+					prevPlayer = data;
+					playerData = os.toByteArray();
+					
+				}
+				
+
+				writeInteger(fos, frameType, 2);
+				writeInteger(fos, fi, 2);
+
+				if (normalData != null) {
+					writeChunk(fos, normalData);
+				}
+				if (shadowData != null) {
+					writeChunk(fos, shadowData);
+				}
+				if (maskData != null) {
+					writeChunk(fos, maskData);
+				}
+				if (smudgeData != null) {
+					writeChunk(fos, smudgeData);
+				}
+				if (playerData != null) {
+					writeChunk(fos, playerData);
+				}			
+				
+			}
+			
+			fos.close();
+			return true;
+			
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();	
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
+		
+	static private final byte[] COMPILE_MONO_MAP_MODE0 = new byte[] {0, 2, 3, 4, 5, 6, 7, 1};
+	static private final byte[] COMPILE_MONO_MAP_MODE1 = new byte[] {0, 2, 3, 4, 5, 1, 6, 7};
+	
+	static private void compileRGB(OutputStream os, int[] data, int width, int[] previousData)
+			throws IOException {
+		int height = data.length == 0 ? 0 : data.length / width;
+		int rows = height >> 2, columns = width >> 2;
+		int tileCount = rows * columns;
+		
+		if (previousData != null && previousData.length == data.length) {
+			boolean allEqual = true;
+			for (int i = data.length - 1; i >= 0; --i) {
+				if (data[i] != previousData[i]) {
+					allEqual = false;
+					break;
+				}
+			}
+			if (allEqual) {
+				int drawCount = ((tileCount + 254) / 255) * 2;
+				short[] draws = new short[drawCount];
+				for (int i = 0; i < drawCount; i += 2) {
+					draws[i] = (short) (tileCount >= 255 ? 255 : tileCount);
+					draws[i + 1] = 0;
+					tileCount -= 255;
+				}
+				writeInteger(os, 384, 2); // Flags
+				writeInteger(os, drawCount / 2, 2);
+				for (int i = 0; i < drawCount; ++i) {
+					writeInteger(os, draws[i], 1);
+				}
+				return;
+			}
+		}
+		
+		short[] draws = new short[tileCount * 2];
+		int[] tiles = new int[tileCount * 4];
+		int drawCount = 0, tileIndex = 0;
+		short draw = 0;
+		boolean currentIsEmpty = true;
+		
+		for (int ind = 0; ind < tileCount; ++ind) {
+			int column = ind % columns, row = ind / columns;
+			int x = column * 4, y = row * 4;
+			boolean isEmpty = true;
+			boolean containEmpty = false;
+			
+			int[] colors = new int[16];
+			for (int i = 0; i < 16; ++i) {
+				int xt = x + i % 4, yt = y + i / 4;
+				int color = data[xt + yt * width];
+				colors[i] = color;
+				if (color != 0) {
+					isEmpty = false;
+				}else{
+					containEmpty = true;
+				}
+			}
+			
+			if (!isEmpty) {
+				double[] brights = new double[16];
+				for (int i = 0; i < 16; ++i) {
+					int color = colors[i];
+					if (color != 0) {
+						int r = (color >> 16) & 0xff, g = (color >> 8) & 0xff, b = color & 0xff;
+						brights[i] = .299 * r + .587 * g + .114 * b;
+					}
+				}
+				
+				double minBr = Double.POSITIVE_INFINITY, maxBr = Double.NEGATIVE_INFINITY;
+				int color0 = colors[0], color1 = colors[0];
+				for (int i = 0; i < 16; ++i) {
+					int color = colors[i];
+					if (colors[i] != 0) {
+						double b = brights[i];
+						if (b < minBr) {
+							minBr = b; color0 = color;
+						}
+						if (b > maxBr) {
+							maxBr = b; color1 = color;
+						}
+					}
+				}
+				int colorValue0 = toColor16(color0);
+				int colorValue1 = toColor16(color1);
+				if (colorValue1 == colorValue0) {
+					containEmpty = true;
+				}
+				if ((colorValue1 >= colorValue0) ^ containEmpty) {
+					int t = color0; color0 = color1; color1 = t;
+					t = colorValue0; colorValue0 = colorValue1; colorValue1 = t;
+				}
+				
+				int[] ps;
+				if (colorValue1 == colorValue0) {
+					ps = new int[]{color0};
+				}else if (containEmpty) {
+					ps = new int[] {
+						color0, color1, 
+						Palette.mixColor(color0, color1, 0.5)
+					};
+				}else{
+					ps = new int[] {
+						color0, color1,
+						Palette.mixColor(color0, color1, 0.33333),
+						Palette.mixColor(color0, color1, 0.66667)
+					};
+				}
+				int plen = ps.length;
+				
+				short[] cids = new short[16];
+				
+				for (int j = 0; j < 16; ++j) {
+					int c0 = colors[j];
+					if (c0 == 0) {
+						cids[j] = 3;
+					}else{
+						short ik = 0;
+						if (plen > 1) {
+							double d = Integer.MAX_VALUE;
+							for (short k = 0; k < plen; ++k) {
+								int c = ps[k];
+								double d1 = Palette.distance(c0, c);
+								if (d1 < d) {
+									d = d1; ik = k;
+								}
+							}
+						}
+						cids[j] = ik;
+					}
+				}
+				
+				int off = tileIndex * 4;
+				tiles[off++] = colorValue0;
+				tiles[off++] = colorValue1;
+				tiles[off++] = cids[0] | cids[1] << 2 | cids[2] << 4 | cids[3] << 6 | cids[4] << 8 | cids[5] << 10 | cids[6] << 12 | cids[7] << 14;
+				tiles[off++] = cids[8] | cids[9] << 2 | cids[10] << 4 | cids[11] << 6 | cids[12] << 8 | cids[13] << 10 | cids[14] << 12 | cids[15] << 14;
+				
+				tileIndex++;
+			}
+			
+			if (isEmpty == currentIsEmpty) {
+				if (draw < 255) {
+					++draw;
+				}else{
+					draws[drawCount++] = draw;
+					draws[drawCount++] = 0;
+					draw = 1;
+				}
+			}else{
+				draws[drawCount++] = draw;
+				currentIsEmpty = !currentIsEmpty;
+				draw = 1;
+			}
+		}
+
+		if (draw != 0) {
+			draws[drawCount++] = draw;
+		}
+		if (drawCount % 2 != 0) {
+			draws[drawCount++] = 0;
+		}
+		
+		writeInteger(os, 256, 2); // Flags
+		writeInteger(os, drawCount / 2, 2);
+		for (int i = 0; i < drawCount; ++i) {
+			writeInteger(os, draws[i], 1);
+		}
+		for (int i = 0, l = tileIndex * 4; i < l; ++i) {
+			writeInteger(os, tiles[i], 2);
+		}
+	}	
+	
+	static private void compileMono(OutputStream os, int[] data, int width, int[] previousData)
+			throws IOException {
+
+		int height = data.length == 0 ? 0 : data.length / width;
+		int rows = height >> 2, columns = width >> 2;
+		int tileCount = rows * columns;
+		
+		if (previousData != null && previousData.length == data.length) {
+			boolean allEqual = true;
+			for (int i = data.length - 1; i >= 0; --i) {
+				if (data[i] != previousData[i]) {
+					allEqual = false;
+					break;
+				}
+			}
+			if (allEqual) {
+				int drawCount = ((tileCount + 254) / 255) * 2;
+				short[] draws = new short[drawCount];
+				for (int i = 0; i < drawCount; i += 2) {
+					draws[i] = (short) (tileCount >= 255 ? 255 : tileCount);
+					draws[i + 1] = 0;
+					tileCount -= 255;
+				}
+				writeInteger(os, 385, 2); // Flags
+				writeInteger(os, drawCount / 2, 2);
+				for (int i = 0; i < drawCount; ++i) {
+					writeInteger(os, draws[i], 1);
+				}
+				return;
+			}
+		}
+		
+		short[] draws = new short[tileCount * 2];
+		int[] tiles = new int[tileCount * 4];
+		int drawCount = 0, tileIndex = 0;
+		short draw = 0;
+		boolean currentIsEmpty = true;
+		
+		for (int ind = 0; ind < tileCount; ++ind) {
+			int column = ind % columns, row = ind / columns;
+			int x = column * 4, y = row * 4;
+			boolean isEmpty = true;
+			boolean containEmpty = false;
+			
+			int[] brights = new int[16];
+			for (int i = 0; i < 16; ++i) {
+				int xt = x + i % 4, yt = y + i / 4;
+				int bright = data[xt + yt * width];
+				if (bright > 0) {
+					isEmpty = false;
+				}else{
+					containEmpty = true;
+				}
+				brights[i] = Math.max(0, bright);
+			}
+			
+			if (!isEmpty) {
+				byte[] map;
+				int bright0 = Integer.MAX_VALUE, bright1 = Integer.MIN_VALUE;
+				if (containEmpty) {
+					map = COMPILE_MONO_MAP_MODE1;
+					for (int i = 0; i < 16; ++i) {
+						int b = brights[i];
+						if (b < bright0 && b > 0) {
+							bright0 = b;
+						}
+						if (b > bright1 && b < 255) {
+							bright1 = b;
+						}
+					}
+					if (bright1 == 0) { // Only 0 and 255
+						bright0 = 0;
+					}
+				}else {
+					map = COMPILE_MONO_MAP_MODE0;
+					for (int i = 0; i < 16; ++i) {
+						int b = brights[i];
+						if (b < bright0) {
+							bright0 = b;
+						}
+						if (b > bright1) {
+							bright1 = b;
+						}
+					}
+					int t = bright1;
+					bright1 = bright0;
+					bright0 = t;
+				}
+					
+
+				int db = bright1 - bright0;
+				if (db == 0) {
+					db = 1;
+				}
+				int[] cids = new int[16];
+				
+				if (containEmpty) {
+					for (int j = 0; j < 16; ++j) {
+						int c = brights[j];
+						if (c == 0) {
+							cids[j] = 6;
+						}else if (c == 255) {
+							cids[j] = 7;
+						}else{
+							cids[j] = map[Math.round((c - bright0) * 5.0f / db)];
+						}
+					}
+				}else{
+					for (int j = 0; j < 16; ++j) {
+						int c = brights[j];
+						cids[j] = map[Math.round((c - bright0) * 7.0f / db)];
+					}
+				}
+				
+				int off = tileIndex * 4;
+				tiles[off++] = bright0 | bright1 << 8;
+				tiles[off++] = (cids[0] | cids[1] << 3 | cids[2] << 6 | cids[3] << 9 | cids[4] << 12 | cids[5] << 15) & 0xffff;
+				tiles[off++] = (cids[5] >> 1 | cids[6] << 2 | cids[7] << 5 | cids[8] << 8 | cids[9] << 11 | cids[10] << 14) & 0xffff;
+				tiles[off++] = (cids[10] >> 2 | cids[11] << 1 | cids[12] << 4 | cids[13] << 7 | cids[14] << 10 | cids[15] << 13) & 0xffff;
+					
+				tileIndex++;
+			}
+			
+			if (isEmpty == currentIsEmpty) {
+				if (draw < 255) {
+					++draw;
+				}else{
+					draws[drawCount++] = draw;
+					draws[drawCount++] = 0;
+					draw = 1;
+				}
+			}else{
+				draws[drawCount++] = draw;
+				currentIsEmpty = !currentIsEmpty;
+				draw = 1;
+			}
+		}
+
+		if (draw != 0) {
+			draws[drawCount++] = draw;
+		}
+		if (drawCount % 2 != 0) {
+			draws[drawCount++] = 0;
+		}
+		
+		writeInteger(os, 257, 2); // Flags
+		writeInteger(os, drawCount / 2, 2);
+		for (int i = 0; i < drawCount; ++i) {
+			writeInteger(os, draws[i], 1);
+		}
+		for (int i = 0, l = tileIndex * 4; i < l; ++i) {
+			writeInteger(os, tiles[i], 2);
+		}
+	}
+	
 	static private int getBrightness(int pixel){
 		int red = pixel >> 16 & 0xff;
 		int green = pixel >> 8 & 0xff;
 		int blue = pixel & 0xff;
 		int max = Math.max(red, Math.max(green, blue));
 		return (max + red + green + blue) >> 2;
+	}
+	
+	static private int toColor16(int color) {
+		int r = (color >> 16) & 0xff, g = (color >> 8) & 0xff, b = color & 0xff;
+		return (((r + 4) * 0x1f / 0xff) << 11) | (((g + 2) * 0x3f / 0xff) << 5) | (((b + 4) * 0x1f) / 0xff);
 	}
 	
 	static public Sprite importFromImages(Sprite sprite, File[] files,
@@ -1628,7 +2927,9 @@ final public class SpriteIO {
 		boolean outline = (imageMode & IMAGE_MODE_OUTLINE_MASK) != 0;
 		boolean smudge = (imageMode & IMAGE_MODE_SMUDGE_MASK) != 0;
 		boolean cutOpaque = (imageMode & IMAGE_MODE_BACKGROUND_MASK) != 0;
+		boolean monoSmudge = (imageMode & IMAGE_MODE_MONO_SMUDGE_MASK) != 0;
 		boolean csv = settings.get("csv") > 0;
+		Palette smudgePalette = Palette.getPalette(512);
 		
 		int stride = 1;
 		imageMode &= IMAGE_MODE_MASK;
@@ -1640,8 +2941,6 @@ final public class SpriteIO {
 			++stride;
 		if (smudge)
 			++stride;
-		
-		//System.out.println(stride);
 		
 		boolean rgbMode = !(settings.get("hsvMode") > 0); 
 		boolean autoCrop = settings.get("autoCrop") > 0;
@@ -1660,7 +2959,6 @@ final public class SpriteIO {
 		final int framesPerImage = frameRows * frameColumns;
 
 		for (int imageIndex=0; imageIndex<files.length; ++imageIndex){
-			//System.out.println(files[index].getAbsolutePath());
 			BufferedImage image = ImageIO.read(files[imageIndex]);
 
 			int imageWidth = image.getWidth(null);
@@ -1819,15 +3117,27 @@ final public class SpriteIO {
 					frame.remove(Sprite.DATA_SMUDGE);
 				}else{
 					x0 += width;
-					for (int y=0; y<height; ++y){
-						for (int x=0; x<width; ++x){
-							int pixel = image.getRGB(x+x0, y+y0);
-							if (cutOpaque)
-								pixel &= 0xff;
-							else
-								pixel = pixel >> 24 & 0xff;
-						
-							frame.setPixel(Sprite.DATA_SMUDGE, x, y, pixel << 2);
+					if (monoSmudge) {
+						for (int y=0; y<height; ++y){
+							for (int x=0; x<width; ++x){
+								int pixel = image.getRGB(x+x0, y+y0);
+								if (cutOpaque)
+									pixel &= 0xff;
+								else
+									pixel = pixel >> 24 & 0xff;
+								if (frame.getPixel(Sprite.DATA_IMAGE, x, y) != Sprite.PIXEL_NULL) {
+									frame.setPixel(Sprite.DATA_SMUDGE, x, y, smudgePalette.mapping(pixel, pixel, pixel));	
+								}
+							}
+						}	
+					}else {
+						for (int y=0; y<height; ++y){
+							for (int x=0; x<width; ++x){
+								int pixel = image.getRGB(x+x0, y+y0);
+								if (frame.getPixel(Sprite.DATA_IMAGE, x, y) != Sprite.PIXEL_NULL) {
+									frame.setPixel(Sprite.DATA_SMUDGE, x, y, smudgePalette.mapping(pixel));	
+								}
+							}
 						}
 					}
 				}
@@ -1889,12 +3199,17 @@ final public class SpriteIO {
 		int rows = settings.get("rows");
 		int columns = settings.get("columns");
 		int padding = settings.get("padding");
+		int fixedWidth = settings.get("fixedWidth");
+		int fixedHeight = settings.get("fixedHeight");
 		Color backgroundColor = new Color(settings.get("backgroundColor"));
 		
 		boolean outline = (imageMode & IMAGE_MODE_OUTLINE_MASK) != 0;
 		boolean smudge = (imageMode & IMAGE_MODE_SMUDGE_MASK) != 0;
 		boolean background = (imageMode & IMAGE_MODE_BACKGROUND_MASK) != 0;
 		boolean csv = (anchorMode & ANCHOR_MODE_CSV_MASK) != 0;
+		boolean monoSmudge = (imageMode & IMAGE_MODE_MONO_SMUDGE_MASK) != 0;
+		boolean fixedDimensions = settings.get("fixedDimensions") != 0;
+		
 		int stride = getImageModeStride(imageMode);
 		imageMode &= IMAGE_MODE_MASK;
 		anchorMode &= ANCHOR_MODE_MASK;
@@ -1952,6 +3267,15 @@ final public class SpriteIO {
 				frameY = coord[1];
 				frameWidth = coord[2] + padding * 2;
 				frameHeight = coord[3] + padding * 2;
+				
+				if (fixedDimensions) {
+					if (anchorMode == ANCHOR_MODE_CENTER) {
+						frameX += (fixedWidth - frameWidth) / 2;
+						frameY += (fixedHeight - frameHeight) / 2;
+					}
+					frameWidth = fixedWidth;
+					frameHeight = fixedHeight;	
+				}
 				
 				im = new BufferedImage(frameWidth * columns * stride,
 						frameHeight * rows, BufferedImage.TYPE_INT_ARGB);
@@ -2025,7 +3349,7 @@ final public class SpriteIO {
 						int pixel = frame.getPixel(Sprite.DATA_IMAGE, x, y); 
 						if (pixel != Sprite.PIXEL_NULL){
 							if (pixel < Sprite.PIXEL_PLAYER_START) // Normal Pixel
-								im.setRGB(x + x1, y + y1, frameImage.getRGB(x, y) & 0xffffff | 0xfe000000);
+								im.setRGB(x + x1, y + y1, frameImage.getRGB(x, y) & 0xffffff | 0xE0000000);
 						}
 					}
 				}
@@ -2332,7 +3656,7 @@ final public class SpriteIO {
 		return readInteger(is, length, true);
 	}
 	
-	static public int writeInteger(OutputStream os, int number, int length){
+	static public int writeInteger(OutputStream os, int number, int length) throws IOException{
 		byte[] bytes = new byte[length];
 		if (length == 1){
 			bytes[0] = (byte) number;
@@ -2349,13 +3673,24 @@ final public class SpriteIO {
 		}else{
 			return 0;
 		}
-		try {
-			os.write(bytes);
-		} catch (IOException e) {
-			e.printStackTrace();
-			return 0;
-		}
+		os.write(bytes);
 		return length;
 	}
 
+	static public byte[] readChunk(InputStream is) throws IOException {
+		int size = (readInteger(is, 4) - 1) >> 2 << 2;
+		byte[] seg = new byte[size];
+		is.read(seg);
+		return seg;
+	}
+
+	static public void writeChunk(OutputStream os, byte[] bytes) throws IOException {
+		int size = bytes.length;
+		int residue = (-size) & 0x3;
+		writeInteger(os, size + 4, 4);
+		os.write(bytes);
+		os.write(new byte[residue]);
+	}
+	
+	
 }

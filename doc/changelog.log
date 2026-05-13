@@ -1,6 +1,42 @@
 Change log
 ===============================
 
+Beta 1.09.4
+- Added dither transparency tool to dither semi-transparent pixels.
+- Added transpose frames tool to reorder frames by striding through the sequence (e.g. for column-major order).
+
+Beta 1.09.3
+- Fixed an issue of select inverse frames.
+- Fixed an issue of wrong center at exporting images as fixed size.
+- Trimming frames wouldn't affect frames out of one angle.
+- Fixed bug in loading player color of inherited frames.
+- Improved frame list for large sprite files.
+- Now can use old monochrome smudge mode in importing images.
+
+Beta 1.09.2
+- Improved color mapping for SLD files.
+- Applied three channels smudge for SLD files.
+- Fixed an issue when loading SLP files with certain empty lines.
+- Exporting images can set fixed tile size now.
+- Added blur shadow tool, but can also blur antialias shadow pixels at present.
+- Added append mode for opening sprite files.
+- Improved CNC palette importing.
+- Export to GIF can use current view options and frame selection now.
+- Long operations can be interrupted with Ctrl+C as well as Pause/Break now.
+
+Beta 1.09.1
+- Fixed an issue of zero-tinted player color changed into transparent in SLD files.
+- Fixed an issue that unable to read shadow only SLDs well.
+- Improved player color in open & save of SLD format.
+- Added batch functions: to SLP/SMX/SLD, scale by twice or half.
+- Compression of same frames in SLD is available now.
+
+Beta 1.09
+- Fixed a problem when drag and drop files, running in high JRE versions.
+- Added a palette "RGB 555", used for reading SLD files.
+- Opening & saving SLD files is available now.
+- Saved files' extension names is in lower case now.
+
 Beta 1.08.2
 - Fixed a problem that shadows get lost when reading SLP files.
 - Added easy way to convert sprite to AOE/AOK/AOE2DE(SMX).

@@ -19,8 +19,8 @@ public class ExportImagesDialog extends PropDialog {
 	private static final long serialVersionUID = 4977620204371008885L;
 	private MainFrame mainFrame;
 	private Choice imageModeChoice, anchorModeChoice;
-	private NumberField rowsText, columnsText, paddingText;
-	private Checkbox outlineCheckbox, smudgeCheckbox, csvCheckbox, selectedOnlyCheckbox;
+	private NumberField rowsText, columnsText, paddingText, fixedWidthText, fixedHeightText;
+	private Checkbox outlineCheckbox, smudgeCheckbox, csvCheckbox, selectedOnlyCheckbox, fixedDimensionsCheckbox;
 	private Button backgroundButton;
 	
 	static final int[] IMAGE_MODES = {
@@ -43,6 +43,9 @@ public class ExportImagesDialog extends PropDialog {
 			put("padding", 0);
 			put("backgroundColor", 0xffff00ff);
 			put("selectedOnly", 0);
+			put("fixedDimensions", 0);
+			put("fixedWidth", 80);
+			put("fixedHeight", 80);
 		}
 	};
 	
@@ -64,10 +67,13 @@ public class ExportImagesDialog extends PropDialog {
 		this.add(rowsText = new NumberField(true), "TextField.rows");
 		this.add(columnsText = new NumberField(true), "TextField.columns");
 		this.add(paddingText = new NumberField(true), "TextField.padding");
+		this.add(fixedWidthText = new NumberField(true), "TextField.fixedWidth");
+		this.add(fixedHeightText = new NumberField(true), "TextField.fixedHeight");
 		outlineCheckbox = this.addCheckbox("Checkbox.outline");
 		smudgeCheckbox = this.addCheckbox("Checkbox.smudge");
 		csvCheckbox = this.addCheckbox("Checkbox.csv");
 		selectedOnlyCheckbox = this.addCheckbox("Checkbox.selectedOnly");
+		fixedDimensionsCheckbox = this.addCheckbox("Checkbox.fixedDimensions");
 		
 		rowsText.setRange(1, null);
 		columnsText.setRange(1, null);
@@ -117,9 +123,12 @@ public class ExportImagesDialog extends PropDialog {
 		rowsText.setText(settings.get("rows"));
 		columnsText.setText(settings.get("columns"));
 		paddingText.setText(settings.get("padding"));
+		fixedWidthText.setText(settings.get("fixedWidth"));
+		fixedHeightText.setText(settings.get("fixedHeight"));
 		backgroundButton.setBackground(new Color(settings.get("backgroundColor")));
 		
 		selectedOnlyCheckbox.setState(settings.get("selectedOnly") != 0);
+		fixedDimensionsCheckbox.setState(settings.get("fixedDimensions") != 0);
 		
 	}
 
@@ -144,8 +153,11 @@ public class ExportImagesDialog extends PropDialog {
 		settings.put("backgroundColor", backgroundButton.getBackground().getRGB());
 		
 		settings.put("playerColor", mainFrame.getPreview().playerColorId);
-		
 		settings.put("selectedOnly", selectedOnlyCheckbox.getState() ? 1 : 0);
+		
+		settings.put("fixedDimensions", fixedDimensionsCheckbox.getState() ? 1 : 0);
+		settings.put("fixedWidth", fixedWidthText.getInteger());
+		settings.put("fixedHeight", fixedHeightText.getInteger());
 	}
 
 }

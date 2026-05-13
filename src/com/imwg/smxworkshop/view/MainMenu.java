@@ -143,6 +143,17 @@ public class MainMenu extends MenuBar{
 						mainFrame.addRecentFile(fname);
 					}
 					break;
+				
+				case "root.File.Append":
+					file = mainFrame.popupChooseSpriteFile(JFileChooser.OPEN_DIALOG);
+					if (file != null){
+						mainFrame.popupProcessDialog();
+						Sprite aSprite = SpriteIO.loadFromFile(file);
+						mainFrame.closeProcessDialog();
+						mainFrame.getModel().appendSprite(mainFrame.getSprite(), aSprite);
+						mainFrame.reload();
+					}
+					break;
 					
 				case "root.File.Save":
 					if (mainFrame.currentFile != null){
@@ -329,7 +340,10 @@ public class MainMenu extends MenuBar{
 					mainFrame.getCanvas().repaint();
 					break;
 				case "root.View.Palettes":
-					new ImportImagesDialog(mainFrame).setVisible(true);
+					ImportImagesDialog importImagesDialog = new ImportImagesDialog(mainFrame);
+					Sprite.Frame frame = mainFrame.getSprite().getFrame(mainFrame.current);
+					importImagesDialog.setViewingPalette(frame == null ? 0 : frame.getPalette());
+					importImagesDialog.setVisible(true);
 					break;
 				}
 			}
@@ -358,7 +372,7 @@ public class MainMenu extends MenuBar{
 					try{
 						final int offset = Integer.parseInt(JOptionPane.showInputDialog(
 										ViewConfig.getString("ShiftFramesDialog.Label.offset")));
-						if (offset > 0){
+						if (offset != 0){
 							final int count = mainFrame.getSelectedFrames().length; 
 							final int first = model.shiftFrames(sprite, mainFrame.getSelectedFrames(), offset);
 							int[] ids = new int[count];
@@ -521,6 +535,35 @@ public class MainMenu extends MenuBar{
 					convertShadowDialog.setVisible(true);
 					break;
 					
+				case "root.Tools.DitherTransparent":
+					DitherTransparentDialog ditherTransparentDialog = new DitherTransparentDialog(mainFrame);
+					ditherTransparentDialog.setConfirmedListener(new ActionListener(){
+						@Override
+						public void actionPerformed(ActionEvent e){
+							Sprite sprite = mainFrame.getSprite();
+							int[] selected = mainFrame.getSelectedFrames();
+							FrameFilter filter = new FrameFilter();
+							int length = selected.length;
+							int start = DitherTransparentDialog.start, end = DitherTransparentDialog.end;
+							int levels = DitherTransparentDialog.levels;
+							for (int index = 0; index < length; ++index){
+								filter.setFrame(sprite.getFrame(index));
+								double rate;
+								if (length == 1) {
+									rate = start / 256.0;
+								} else {
+									rate = (start * (length - index - 1) + end * index) / (length - 1) / 256.0;
+								}
+								filter.ditherImageRate(Sprite.DATA_IMAGE, levels, rate);
+								filter.ditherImageRate(Sprite.DATA_SMUDGE, levels, rate);
+								filter.ditherImageRate(Sprite.DATA_SHADOW, levels, rate);
+							}
+							mainFrame.refreshAll();
+						}
+					});
+					ditherTransparentDialog.setVisible(true);
+					break;
+					
 				case "root.Tools.AddOutline":
 					int[] selected = mainFrame.getSelectedFrames();
 					FrameFilter filter = new FrameFilter();
@@ -571,6 +614,25 @@ public class MainMenu extends MenuBar{
 							}
 						});
 						dialog.setVisible(true);
+					}
+					break;
+					
+				case "root.Tools.BlurShadow":
+					selected = mainFrame.getSelectedFrames();
+					if (selected.length > 0){
+						String numStr = JOptionPane.showInputDialog(
+								ViewConfig.getString("Common.Misc.Radius"), 
+								Integer.toString(5));
+						if (numStr != null){
+							final int radius = Integer.parseInt(numStr);
+							filter = new FrameFilter();
+							for (int index : mainFrame.getSelectedFrames()){
+								Sprite.Frame frame = sprite.getFrame(index);
+								filter.setFrame(frame);
+								filter.blurShadow(radius);
+							}
+							mainFrame.reload();
+						}
 					}
 					break;
 					
@@ -721,7 +783,84 @@ public class MainMenu extends MenuBar{
 						mainFrame.refreshAll();
 					}
 				} break;
-					
+				
+				case "root.Tools.BatchToSLP": {
+					JOptionPane.showMessageDialog(mainFrame,
+							ViewConfig.getString("Common.BatchToSLDDialog"));
+					File[] files = mainFrame.popupChooseSpriteFiles(JFileChooser.OPEN_DIALOG);
+					if (files != null) {
+						mainFrame.popupProcessDialog();
+						model.convertToSLPs(files);
+						mainFrame.closeProcessDialog();
+					}
+				} break;	
+				
+				case "root.Tools.BatchToSMX": {
+					JOptionPane.showMessageDialog(mainFrame,
+							ViewConfig.getString("Common.BatchToSLDDialog"));
+					File[] files = mainFrame.popupChooseSpriteFiles(JFileChooser.OPEN_DIALOG);
+					if (files != null) {
+						mainFrame.popupProcessDialog();
+						model.convertToSMXs(files);
+						mainFrame.closeProcessDialog();
+					}
+				} break;	
+
+				case "root.Tools.BatchToSLD": {
+					JOptionPane.showMessageDialog(mainFrame,
+							ViewConfig.getString("Common.BatchToSLDDialog"));
+					File[] files = mainFrame.popupChooseSpriteFiles(JFileChooser.OPEN_DIALOG);
+					if (files != null) {
+						mainFrame.popupProcessDialog();
+						model.convertToSLDs(files);
+						mainFrame.closeProcessDialog();
+					}
+				} break;	
+				
+				case "root.Tools.BatchSprite2x": {
+					JOptionPane.showMessageDialog(mainFrame,
+							ViewConfig.getString("Common.BatchSprite2xDialog"));
+					File[] files = mainFrame.popupChooseSpriteFiles(JFileChooser.OPEN_DIALOG);
+					if (files != null) {
+						mainFrame.popupProcessDialog();
+						model.expandSpriteFiles2x(files);
+						mainFrame.closeProcessDialog();
+					}
+				} break;	
+
+				case "root.Tools.BatchSpriteHalf": {
+					JOptionPane.showMessageDialog(mainFrame,
+							ViewConfig.getString("Common.BatchSpriteHalfDialog"));
+					File[] files = mainFrame.popupChooseSpriteFiles(JFileChooser.OPEN_DIALOG);
+					if (files != null) {
+						mainFrame.popupProcessDialog();
+						model.expandSpriteFilesHalf(files);
+						mainFrame.closeProcessDialog();
+					}
+				} break;	
+
+				case "root.Tools.TransposeFrames": {
+					String numStr = JOptionPane.showInputDialog(
+							ViewConfig.getString("AdjustAngleDialog.Label.angles"), 
+							Integer.toString(AdjustAngleDialog.angleCount));
+					int dirs = Integer.parseInt(numStr);
+					int length = sprite.getFrameCount();
+					Sprite.Frame[] frames = new Sprite.Frame[length];
+					int off = 0;
+					for (int j = 0; j < dirs; ++j) {
+						for (int i = j; i < length; i += dirs) {
+							frames[off++] = sprite.getFrame(i);
+						}
+					}
+					for (int i = length - 1; i >= 0; --i) {
+						sprite.removeFrame(i);
+					}
+					for (int i = 0; i < length; ++i) {
+						sprite.insertFrame(i, frames[i]);
+					}
+					mainFrame.refreshAll();
+				} break;	
+				
 				}
 			}
 		};
@@ -1030,8 +1169,15 @@ public class MainMenu extends MenuBar{
 					
 					menuItem.setActionCommand(itemKey);
 					String key = properties.getProperty(itemKey + ".key");
-					if (key != null)
-						menuItem.setShortcut(new MenuShortcut(key.codePointAt(0)));
+					if (key != null) {
+						MenuShortcut sc;
+						if (key.length() == 2 && key.charAt(1) == '*') {
+							sc = new MenuShortcut(key.codePointAt(0), true);
+						}else {
+							sc = new MenuShortcut(key.codePointAt(0), false);
+						}
+						menuItem.setShortcut(sc);
+					}
 					menuItems[i] = menuItem;
 					onAddListener(menuItem, itemKey);
 				}
